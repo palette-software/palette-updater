@@ -1,5 +1,7 @@
 test-results/
 tmp/
 
+*.exe
+
 .idea
 *.iml
