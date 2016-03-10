@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build windows
-
 // Example service program that beeps.
 //
 // The program demonstrates how to create Windows service and
@@ -22,23 +20,23 @@ import (
 	log "github.com/palette-software/insight-tester/common/logging"
 	svcControl "github.com/palette-software/insight-tester/common/service_control"
 	"golang.org/x/sys/windows/svc"
-	"io/ioutil"
 )
 
-func usage(errmsg string) {
+// Prints usage information
+func usage(errormsg string) {
 	fmt.Fprintf(os.Stderr,
 		"%s\n\n"+
 			"usage: %s <command>\n"+
 			"       where <command> is one of\n"+
-			"       install, remove, debug, start, stop, pause or continue.\n",
-		errmsg, os.Args[0])
+			"       install, remove, debug, start or stop.\n",
+		errormsg, os.Args[0])
 	os.Exit(2)
 }
 
+const svcDisplayName = "Palette Watchdog"
+
 func main() {
 	const svcName = "palettewatchdog"
-
-	var serviceControl svcControl.ServiceControl
 
 	// Initialize the log to write into file instead of stderr
 	// open output file
@@ -58,16 +56,17 @@ func main() {
 	}()
 
 	// Set the levels to be ignored to ioutil.Discard
-	// Levels:  TRACE           INFO     WARNING  ERROR    FATAL
-	log.InitLog(ioutil.Discard, logFile, logFile, logFile, logFile)
+	// Levels:  DEBUG,   INFO,    WARNING, ERROR,   FATAL
+	log.InitLog(logFile, logFile, logFile, logFile, logFile)
 
-	log.Info.Println("Starting up Palette Watchdog...")
+	log.Debug.Printf("Starting up %s...", svcDisplayName)
 
 	isIntSess, err := svc.IsAnInteractiveSession()
 	if err != nil {
 		log.Fatalf("failed to determine if we are running in an interactive session: %v", err)
 	}
 	if !isIntSess {
+		// FIXME: runService is not platform-independent
 		runService(svcName, false)
 		return
 	}
@@ -76,9 +75,13 @@ func main() {
 		usage("no command specified")
 	}
 
+	// Instantiate the service controller
+	var serviceControl svcControl.ServiceControl
+
 	cmd := strings.ToLower(os.Args[1])
 	switch cmd {
 	case "debug":
+		// FIXME: runService is not platform-independent
 		runService(svcName, true)
 		return
 	case "install":
@@ -89,10 +92,25 @@ func main() {
 		err = serviceControl.Start(svcName)
 	case "stop":
 		err = serviceControl.Stop(svcName)
-	case "pause":
-		err = controlService(svcName, svc.Pause, svc.Paused)
-	case "continue":
-		err = controlService(svcName, svc.Continue, svc.Running)
+
+	// NOTE: Delete this section as it is only for debugging purposes.
+	case "get":
+		latestVersion, err := getLatestVersion("agent")
+		if err != nil {
+			log.Error.Println("Failed to retrieve latest version.")
+			return
+		}
+
+		currentVersion, err := getCurrentVersion("agent")
+		if err != nil {
+			log.Error.Println("Failed to retrieve current version.")
+			return
+		}
+		if latestVersion > currentVersion {
+			log.Info.Println("Found newer version on server.")
+		}
+	// NOTE: End of debugging
+
 	default:
 		usage(fmt.Sprintf("invalid command %s", cmd))
 	}

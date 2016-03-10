@@ -7,31 +7,89 @@
 package main
 
 import (
-	"fmt"
 	"time"
 
+	"encoding/json"
+	"fmt"
+	log "github.com/palette-software/insight-tester/common/logging"
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/debug"
-	"golang.org/x/sys/windows/svc/eventlog"
+	"io/ioutil"
+	"net/http"
 )
 
-var elog debug.Log
+// FIXME: Maybe the following Version struct might be reused from insight-server
+// The base structure for a SemVer like version
+type Version struct {
+	// The version according to SemVer
+	Major, Minor, Patch int
+}
+
+// Combines a version with an actual product and a file
+type UpdateVersion struct {
+	Version
+	// The name of the product
+	Product string
+	// The Md5 checksum of this update
+	Md5 string
+	// The url where this update can be downloaded from
+	Url string
+}
+
+// Compare versions
+func (thisVersion *Version) IsNewer(otherVersion Version) bool {
+	if thisVersion > otherVersion {
+		return true
+	}
+
+	return false
+}
+
+func getLatestVersion(product string) (Version, error) {
+	log.Debug.Printf("Getting latest %s version...", product)
+	// FIXME: Get webservice address and port dynamically
+	resp, err := http.Get("http://localhost:9000/updates/latest-version?product=agent")
+	if err != nil {
+		log.Error.Println("Error during querying latest agent version: ", err)
+		return nil, err
+	}
+	log.Info.Printf("Latest %s version: %s", product, resp)
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Error.Println("Failed to read body of response: ", err)
+		return nil, err
+	}
+	log.Debug.Printf("Body of response: %s", body)
+
+	version := &Version{}
+	if err := json.NewDecoder(body).Decode(version); err != nil {
+		return nil, fmt.Errorf("Error while deserializing version response body '%s'. Error message: %v", body, err)
+	}
+
+	return version, nil
+}
+
+func getCurrentVersion(product string) (Version, error) {
+	// FIXME: Find a way to determine the currently installed version of the given product
+	return Version{0, 0, 0}, nil
+}
 
 type paletteWatchdogService struct{}
 
-func (m *paletteWatchdogService) Execute(args []string, changeRequest <-chan svc.ChangeRequest, changes chan<- svc.Status) (ssec bool, errno uint32) {
+func (pws *paletteWatchdogService) Execute(args []string, changeRequest <-chan svc.ChangeRequest, changes chan<- svc.Status) (ssec bool, errno uint32) {
 	const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown | svc.AcceptPauseAndContinue
 	changes <- svc.Status{State: svc.StartPending}
-	fasttick := time.Tick(500 * time.Millisecond)
-	slowtick := time.Tick(2 * time.Second)
-	tick := fasttick
+	tick := time.Tick(5 * time.Second)
 	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
 loop:
 	for {
 		select {
 		case <-tick:
-			beep()
-			elog.Info(1, "beep")
+			if getLatestVersion("agent") {
+
+			}
+
 		case cr := <-changeRequest:
 			switch cr.Cmd {
 			case svc.Interrogate:
@@ -40,15 +98,10 @@ loop:
 				time.Sleep(100 * time.Millisecond)
 				changes <- cr.CurrentStatus
 			case svc.Stop, svc.Shutdown:
+				log.Info.Printf("Stopping %s...", svcDisplayName)
 				break loop
-			case svc.Pause:
-				changes <- svc.Status{State: svc.Paused, Accepts: cmdsAccepted}
-				tick = slowtick
-			case svc.Continue:
-				changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
-				tick = fasttick
 			default:
-				elog.Error(1, fmt.Sprintf("unexpected control request #%d", cr))
+				log.Error.Printf("unexpected control request #%d", cr)
 			}
 		}
 	}
@@ -58,25 +111,16 @@ loop:
 
 func runService(name string, isDebug bool) {
 	var err error
-	if isDebug {
-		elog = debug.New(name)
-	} else {
-		elog, err = eventlog.Open(name)
-		if err != nil {
-			return
-		}
-	}
-	defer elog.Close()
 
-	elog.Info(1, fmt.Sprintf("starting %s service", name))
+	log.Info.Printf("starting %s service", name)
 	run := svc.Run
 	if isDebug {
 		run = debug.Run
 	}
 	err = run(name, &paletteWatchdogService{})
 	if err != nil {
-		elog.Error(1, fmt.Sprintf("%s service failed: %v", name, err))
+		log.Error.Printf("%s service failed: %v", name, err)
 		return
 	}
-	elog.Info(1, fmt.Sprintf("%s service stopped", name))
+	log.Info.Printf("%s service stopped", name)
 }
