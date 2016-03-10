@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	log "github.com/palette-software/insight-tester/common/logging"
+	svcControl "github.com/palette-software/insight-tester/common/service_control"
 	"golang.org/x/sys/windows/svc"
 	"io/ioutil"
 )
@@ -35,7 +36,9 @@ func usage(errmsg string) {
 }
 
 func main() {
-	const svcName = "paletteinsightwatchdog"
+	const svcName = "palettewatchdog"
+
+	var serviceControl svcControl.ServiceControl
 
 	// Initialize the log to write into file instead of stderr
 	// open output file
@@ -58,7 +61,7 @@ func main() {
 	// Levels:  TRACE           INFO     WARNING  ERROR    FATAL
 	log.InitLog(ioutil.Discard, logFile, logFile, logFile, logFile)
 
-	log.Info.Println("Starting up...")
+	log.Info.Println("Starting up Palette Watchdog...")
 
 	isIntSess, err := svc.IsAnInteractiveSession()
 	if err != nil {
@@ -79,13 +82,13 @@ func main() {
 		runService(svcName, true)
 		return
 	case "install":
-		err = installService(svcName, "Palette Insight Watchdog")
+		err = serviceControl.Install(svcName, "Palette Watchdog")
 	case "remove":
-		err = removeService(svcName)
+		err = serviceControl.Remove(svcName)
 	case "start":
-		err = startService(svcName)
+		err = serviceControl.Start(svcName)
 	case "stop":
-		err = controlService(svcName, svc.Stop, svc.Stopped)
+		err = serviceControl.Stop(svcName)
 	case "pause":
 		err = controlService(svcName, svc.Pause, svc.Paused)
 	case "continue":
