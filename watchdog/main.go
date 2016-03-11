@@ -10,17 +10,23 @@
 // write to event log. It also shows how to use debug
 // facilities available in debug package.
 //
+
 package main
 
 import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	log "github.com/palette-software/insight-tester/common/logging"
 	svcControl "github.com/palette-software/insight-tester/common/service_control"
+
 	"golang.org/x/sys/windows/svc"
+	"golang.org/x/sys/windows/svc/debug"
 )
+
+const svcDisplayName = "Palette Watchdog"
 
 // Prints usage information
 func usage(errormsg string) {
@@ -33,7 +39,54 @@ func usage(errormsg string) {
 	os.Exit(2)
 }
 
-const svcDisplayName = "Palette Watchdog"
+// Defining the watchdog service
+type paletteWatchdogService struct{}
+
+func (pws *paletteWatchdogService) Execute(args []string, changeRequest <-chan svc.ChangeRequest, changes chan<- svc.Status) (ssec bool, errno uint32) {
+	const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown | svc.AcceptPauseAndContinue
+	changes <- svc.Status{State: svc.StartPending}
+	tick := time.Tick(5 * time.Second)
+	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
+loop:
+	for {
+		select {
+		case <-tick:
+			checkForUpdates("agent")
+
+		case cr := <-changeRequest:
+			switch cr.Cmd {
+			case svc.Interrogate:
+				changes <- cr.CurrentStatus
+				// Testing deadlock from https://code.google.com/p/winsvc/issues/detail?id=4
+				time.Sleep(100 * time.Millisecond)
+				changes <- cr.CurrentStatus
+			case svc.Stop, svc.Shutdown:
+				log.Info.Printf("Stopping %s...", svcDisplayName)
+				break loop
+			default:
+				log.Error.Printf("unexpected control request #%d", cr)
+			}
+		}
+	}
+	changes <- svc.Status{State: svc.StopPending}
+	return
+}
+
+func runService(name string, isDebug bool) {
+	var err error
+
+	log.Info.Printf("starting %s service", name)
+	run := svc.Run
+	if isDebug {
+		run = debug.Run
+	}
+	err = run(name, &paletteWatchdogService{})
+	if err != nil {
+		log.Error.Printf("%s service failed: %v", name, err)
+		return
+	}
+	log.Info.Printf("%s service stopped", name)
+}
 
 func main() {
 	const svcName = "palettewatchdog"
@@ -95,7 +148,7 @@ func main() {
 
 	// NOTE: Delete this section as it is only for debugging purposes.
 	case "get":
-		checkForUpdates()
+		checkForUpdates("agent")
 	// NOTE: End of debugging
 
 	default:

@@ -2,40 +2,41 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build windows
-
 package main
 
 import (
-	"time"
-
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+
 	insight "github.com/palette-software/insight-server"
 	log "github.com/palette-software/insight-tester/common/logging"
-	"golang.org/x/sys/windows/svc"
-	"golang.org/x/sys/windows/svc/debug"
-	"net/http"
+
+	"github.com/kardianos/osext"
+	"gopkg.in/yaml.v2"
 )
 
-func getLatestVersion(product string) (insight.Version, error) {
+func getLatestVersion(product, updateServerAddress string) (insight.Version, error) {
 	log.Debug.Printf("Getting latest %s version...", product)
-	// FIXME: Get webservice address and port dynamically
+
 	version := insight.Version{}
-	resp, err := http.Get("http://localhost:9000/updates/latest-version?product=agent")
+	endpoint := fmt.Sprintf("%s/updates/latest-version?product=%s", updateServerAddress, product)
+	resp, err := http.Get(endpoint)
 	if err != nil {
 		log.Error.Println("Error during querying latest agent version: ", err)
 		return version, err
 	}
-	log.Info.Printf("Latest %s version: %s", product, resp)
+	log.Debug.Printf("Latest %s version: %s", product, resp)
 	defer resp.Body.Close()
 
+	// Decode the JSON in the response
 	if err := json.NewDecoder(resp.Body).Decode(&version); err != nil {
 		return version, fmt.Errorf("Error while deserializing version response body. Error message: %v", err)
 	}
 
 	log.Info.Println("Decoded version: ", version)
-
 	return version, nil
 }
 
@@ -49,71 +50,93 @@ func performUpdate() error {
 	return nil
 }
 
-func checkForUpdates() {
-	latestVersion, err := getLatestVersion("agent")
+type Webservice struct {
+	Endpoint string `yaml:"Endpoint"`
+}
+
+type Config struct {
+	Webservice Webservice `yaml:"Webservice"`
+}
+
+func obtainUpdateServerAddress() (string, error) {
+	configFilePath, err := findAgentConfigFile()
 	if err != nil {
-		log.Error.Println("Failed to retrieve latest version. Error message: ", err)
+		return "", err
+	}
+
+	var config Config
+
+	// Open agent's .yml config file
+	input, err := os.Open(configFilePath)
+	if err != nil {
+		log.Error.Println("Error opening file: ", err)
+		return "", err
+	}
+	defer input.Close()
+	b, err := ioutil.ReadAll(input)
+	if err != nil {
+		log.Error.Println("Error reading file: ", err)
+		return "", err
+	}
+
+	// Parse the .yml config file
+	err = yaml.Unmarshal(b, &config)
+	if err != nil {
+		log.Error.Println("Error parsing xml", err)
+		return "", err
+	}
+	return config.Webservice.Endpoint, nil
+}
+
+// FIXME: locating the config file is not generic! This means this way is not going to be okay if we wanted to use this service as an auto-updater for the insight-server
+func findAgentConfigFile() (string, error) {
+	folderPath, err := osext.ExecutableFolder()
+	if err != nil {
+		log.Fatal("Failed to get the execution folder: ", err)
+		return "", err
+	}
+
+	log.Debug.Println("Execution folder: ", folderPath)
+
+	configPath := folderPath + "/Config/Config.yml"
+
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		log.Error.Println("Agent config file does not exist! Error message: ", err)
+		return "", err
+	}
+
+	// Successfully located agent config file
+	return configPath, nil
+}
+
+func checkForUpdates(product string) {
+	// Get the server address which stores the update files
+	updateServerAddress, err := obtainUpdateServerAddress()
+	if err != nil {
+		log.Error.Println("Failed to obtain update server address! Error message: ", err)
 		return
 	}
 
-	currentVersion, err := getCurrentVersion("agent")
+	// Check the latest version available on the server
+	latestVersion, err := getLatestVersion(product, updateServerAddress)
 	if err != nil {
-		log.Error.Println("Failed to retrieve current version.")
+		log.Error.Printf("Failed to retrieve latest %s version. Error message: %s", product, err)
 		return
 	}
+
+	// Obtain the currently installed version
+	currentVersion, err := getCurrentVersion(product)
+	if err != nil {
+		log.Error.Printf("Failed to retrieve current %s version.", product)
+		return
+	}
+
+	// Perform the update, if there is a newer version
 	if latestVersion.String() > currentVersion.String() {
-		log.Info.Println("Found newer version on server.")
+		log.Info.Printf("Found newer %s version on server.", product)
 		err = performUpdate()
 		if err != nil {
-			log.Error.Println("Failed to perform the update: ", err)
+			log.Error.Printf("Failed to perform the %s update: %s", product, err)
 		}
 	}
-}
-
-type paletteWatchdogService struct{}
-
-func (pws *paletteWatchdogService) Execute(args []string, changeRequest <-chan svc.ChangeRequest, changes chan<- svc.Status) (ssec bool, errno uint32) {
-	const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown | svc.AcceptPauseAndContinue
-	changes <- svc.Status{State: svc.StartPending}
-	tick := time.Tick(5 * time.Second)
-	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
-loop:
-	for {
-		select {
-		case <-tick:
-			checkForUpdates()
-
-		case cr := <-changeRequest:
-			switch cr.Cmd {
-			case svc.Interrogate:
-				changes <- cr.CurrentStatus
-				// Testing deadlock from https://code.google.com/p/winsvc/issues/detail?id=4
-				time.Sleep(100 * time.Millisecond)
-				changes <- cr.CurrentStatus
-			case svc.Stop, svc.Shutdown:
-				log.Info.Printf("Stopping %s...", svcDisplayName)
-				break loop
-			default:
-				log.Error.Printf("unexpected control request #%d", cr)
-			}
-		}
-	}
-	changes <- svc.Status{State: svc.StopPending}
-	return
-}
-
-func runService(name string, isDebug bool) {
-	var err error
-
-	log.Info.Printf("starting %s service", name)
-	run := svc.Run
-	if isDebug {
-		run = debug.Run
-	}
-	err = run(name, &paletteWatchdogService{})
-	if err != nil {
-		log.Error.Printf("%s service failed: %v", name, err)
-		return
-	}
-	log.Info.Printf("%s service stopped", name)
 }
