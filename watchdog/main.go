@@ -24,6 +24,7 @@ import (
 
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/debug"
+	"io/ioutil"
 )
 
 const svcDisplayName = "Palette Watchdog"
@@ -110,7 +111,8 @@ func main() {
 
 	// Set the levels to be ignored to ioutil.Discard
 	// Levels:  DEBUG,   INFO,    WARNING, ERROR,   FATAL
-	log.InitLog(logFile, logFile, logFile, logFile, logFile)
+	log.InitLog(ioutil.Discard, os.Stdout, os.Stderr, os.Stderr, os.Stderr)
+	//log.InitLog(logFile, logFile, logFile, logFile, logFile)
 
 	log.Debug.Printf("Starting up %s...", svcDisplayName)
 

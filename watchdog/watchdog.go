@@ -14,21 +14,23 @@ import (
 	insight "github.com/palette-software/insight-server"
 	log "github.com/palette-software/insight-tester/common/logging"
 
+	"crypto/md5"
 	"github.com/kardianos/osext"
 	"gopkg.in/yaml.v2"
+	"time"
 )
 
-func getLatestVersion(product, updateServerAddress string) (insight.Version, error) {
+func getLatestVersion(product, updateServerAddress string) (insight.UpdateVersion, error) {
 	log.Debug.Printf("Getting latest %s version...", product)
 
-	version := insight.Version{}
+	version := insight.UpdateVersion{}
 	endpoint := fmt.Sprintf("%s/updates/latest-version?product=%s", updateServerAddress, product)
 	resp, err := http.Get(endpoint)
 	if err != nil {
 		log.Error.Println("Error during querying latest agent version: ", err)
 		return version, err
 	}
-	log.Debug.Printf("Latest %s version: %s", product, resp)
+	log.Debug.Printf("Latest %s version response: %s", product, resp)
 	defer resp.Body.Close()
 
 	// Decode the JSON in the response
@@ -36,7 +38,7 @@ func getLatestVersion(product, updateServerAddress string) (insight.Version, err
 		return version, fmt.Errorf("Error while deserializing version response body. Error message: %v", err)
 	}
 
-	log.Info.Println("Decoded version: ", version)
+	log.Info.Println("Decoded version: ", version.String())
 	return version, nil
 }
 
@@ -111,6 +113,74 @@ func findAgentConfigFile() (string, error) {
 	return configPath, nil
 }
 
+// Download the specified version
+func downloadVersion(updateServerAddress, product string, version insight.UpdateVersion) error {
+	versionString := version.String()
+	log.Info.Printf("Downloading %s version: %s", product, versionString)
+	fileName := fmt.Sprintf("%s-%s", product, versionString)
+	// FIXME: This is not platform independent!
+	fileName = fileName + ".msi"
+	endpoint := fmt.Sprintf("%s/updates/products/%s/%s/%s", updateServerAddress, product, versionString, fileName)
+
+	var attemptCounter uint32 = 0
+
+	// Except for the first download attempt, wait for a while before the next download attempt.
+	// But not more than 30 minutes.
+	const maxWaitSeconds uint32 = 30 * 60
+	// The wait duration is increased by 10 seconds on each attempt.
+	const waitIncreaseUnit uint32 = 10
+
+	for {
+		waitSeconds := attemptCounter * waitIncreaseUnit
+		if waitSeconds > maxWaitSeconds {
+			waitSeconds = maxWaitSeconds
+		}
+		time.Sleep(time.Duration(waitSeconds) * time.Second)
+
+		attemptCounter++
+		if attemptCounter > 1 {
+			log.Info.Printf("Downloading %s version: %s (%d. attempt)", product, versionString, attemptCounter)
+		}
+
+		// Download
+		resp, err := http.Get(endpoint)
+		if err != nil {
+			log.Error.Println("Failed to download %s version: %s", product, versionString)
+			return err
+		}
+		defer resp.Body.Close()
+
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			log.Error.Printf("Failed to read contents of downloaded file: %s. Error message: %s", fileName, err)
+		}
+
+		err = ioutil.WriteFile(fileName, body, 777)
+		if err != nil {
+			log.Error.Printf("Failed to save file: %s! Error message: %s", fileName, err)
+			return err
+		}
+
+		// Check the MD5 hash of the downloaded file. If it is not right, retry the download.
+		// create an md5 teereader
+		savedFileHash := md5.Sum(body)
+		latestHash := fmt.Sprintf("%32x", savedFileHash)
+		log.Info.Printf("MD5 hash of %s: %s", fileName, latestHash)
+
+		if latestHash != version.Md5 {
+			log.Warning.Printf("MD5 hash mismatch for file: %s! Expected hash is %s, but calculated is %s. Retrying file download.",
+				fileName, version.Md5, latestHash)
+			continue
+		}
+
+		// Successfully downloaded the file
+		break
+	}
+
+	log.Info.Printf("Saved update file: %s", fileName)
+	return nil
+}
+
 func checkForUpdates(product string) {
 	// Get the server address which stores the update files
 	updateServerAddress, err := obtainUpdateServerAddress()
@@ -136,6 +206,13 @@ func checkForUpdates(product string) {
 	// Perform the update, if there is a newer version
 	if latestVersion.String() > currentVersion.String() {
 		log.Info.Printf("Found newer %s version on server.", product)
+
+		// Download the latest version
+		err = downloadVersion(updateServerAddress, product, latestVersion)
+		if err != nil {
+			return
+		}
+
 		err = performUpdate()
 		if err != nil {
 			log.Error.Printf("Failed to perform the %s update: %s", product, err)
