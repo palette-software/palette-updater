@@ -11,39 +11,17 @@ import (
 
 	"encoding/json"
 	"fmt"
+	insight "github.com/palette-software/insight-server"
 	log "github.com/palette-software/insight-tester/common/logging"
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/debug"
 	"net/http"
 )
 
-// FIXME: Maybe the following Version struct might be reused from insight-server
-// The base structure for a SemVer like version
-type Version struct {
-	// The version according to SemVer
-	Major, Minor, Patch int
-}
-
-// Combines a version with an actual product and a file
-type UpdateVersion struct {
-	Version
-	// The name of the product
-	Product string
-	// The Md5 checksum of this update
-	Md5 string
-	// The url where this update can be downloaded from
-	Url string
-}
-
-// Converts a version to its string equivalent
-func (v *Version) String() string {
-	return fmt.Sprintf("v%d.%d.%d", v.Major, v.Minor, v.Patch)
-}
-
-func getLatestVersion(product string) (Version, error) {
+func getLatestVersion(product string) (insight.Version, error) {
 	log.Debug.Printf("Getting latest %s version...", product)
 	// FIXME: Get webservice address and port dynamically
-	version := Version{}
+	version := insight.Version{}
 	resp, err := http.Get("http://localhost:9000/updates/latest-version?product=agent")
 	if err != nil {
 		log.Error.Println("Error during querying latest agent version: ", err)
@@ -61,9 +39,9 @@ func getLatestVersion(product string) (Version, error) {
 	return version, nil
 }
 
-func getCurrentVersion(product string) (Version, error) {
+func getCurrentVersion(product string) (insight.Version, error) {
 	// FIXME: Find a way to determine the currently installed version of the given product
-	return Version{1, 3, 2}, nil
+	return insight.Version{1, 3, 2}, nil
 }
 
 func performUpdate() error {
