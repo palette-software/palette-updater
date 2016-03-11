@@ -95,20 +95,7 @@ func main() {
 
 	// NOTE: Delete this section as it is only for debugging purposes.
 	case "get":
-		latestVersion, err := getLatestVersion("agent")
-		if err != nil {
-			log.Error.Println("Failed to retrieve latest version.")
-			return
-		}
-
-		currentVersion, err := getCurrentVersion("agent")
-		if err != nil {
-			log.Error.Println("Failed to retrieve current version.")
-			return
-		}
-		if latestVersion > currentVersion {
-			log.Info.Println("Found newer version on server.")
-		}
+		checkForUpdates()
 	// NOTE: End of debugging
 
 	default:

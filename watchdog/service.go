@@ -14,7 +14,6 @@ import (
 	log "github.com/palette-software/insight-tester/common/logging"
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/debug"
-	"io/ioutil"
 	"net/http"
 )
 
@@ -36,43 +35,61 @@ type UpdateVersion struct {
 	Url string
 }
 
-// Compare versions
-func (thisVersion *Version) IsNewer(otherVersion Version) bool {
-	if thisVersion > otherVersion {
-		return true
-	}
-
-	return false
+// Converts a version to its string equivalent
+func (v *Version) String() string {
+	return fmt.Sprintf("v%d.%d.%d", v.Major, v.Minor, v.Patch)
 }
 
 func getLatestVersion(product string) (Version, error) {
 	log.Debug.Printf("Getting latest %s version...", product)
 	// FIXME: Get webservice address and port dynamically
+	version := Version{}
 	resp, err := http.Get("http://localhost:9000/updates/latest-version?product=agent")
 	if err != nil {
 		log.Error.Println("Error during querying latest agent version: ", err)
-		return nil, err
+		return version, err
 	}
 	log.Info.Printf("Latest %s version: %s", product, resp)
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		log.Error.Println("Failed to read body of response: ", err)
-		return nil, err
-	}
-	log.Debug.Printf("Body of response: %s", body)
 
-	version := &Version{}
-	if err := json.NewDecoder(body).Decode(version); err != nil {
-		return nil, fmt.Errorf("Error while deserializing version response body '%s'. Error message: %v", body, err)
+	if err := json.NewDecoder(resp.Body).Decode(&version); err != nil {
+		return version, fmt.Errorf("Error while deserializing version response body. Error message: %v", err)
 	}
+
+	log.Info.Println("Decoded version: ", version)
 
 	return version, nil
 }
 
 func getCurrentVersion(product string) (Version, error) {
 	// FIXME: Find a way to determine the currently installed version of the given product
-	return Version{0, 0, 0}, nil
+	return Version{1, 3, 2}, nil
+}
+
+func performUpdate() error {
+	// FIXME: Implement update process
+	return nil
+}
+
+func checkForUpdates() {
+	latestVersion, err := getLatestVersion("agent")
+	if err != nil {
+		log.Error.Println("Failed to retrieve latest version. Error message: ", err)
+		return
+	}
+
+	currentVersion, err := getCurrentVersion("agent")
+	if err != nil {
+		log.Error.Println("Failed to retrieve current version.")
+		return
+	}
+	if latestVersion.String() > currentVersion.String() {
+		log.Info.Println("Found newer version on server.")
+		err = performUpdate()
+		if err != nil {
+			log.Error.Println("Failed to perform the update: ", err)
+		}
+	}
 }
 
 type paletteWatchdogService struct{}
@@ -86,9 +103,7 @@ loop:
 	for {
 		select {
 		case <-tick:
-			if getLatestVersion("agent") {
-
-			}
+			checkForUpdates()
 
 		case cr := <-changeRequest:
 			switch cr.Cmd {
