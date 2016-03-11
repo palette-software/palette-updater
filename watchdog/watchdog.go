@@ -118,9 +118,10 @@ func downloadVersion(updateServerAddress, product string, version insight.Update
 	versionString := version.String()
 	log.Info.Printf("Downloading %s version: %s", product, versionString)
 	fileName := fmt.Sprintf("%s-%s", product, versionString)
+	endpoint := fmt.Sprintf("%s/updates/products/%s/%s/%s", updateServerAddress, product, versionString, fileName)
+
 	// FIXME: This is not platform independent!
 	fileName = fileName + ".msi"
-	endpoint := fmt.Sprintf("%s/updates/products/%s/%s/%s", updateServerAddress, product, versionString, fileName)
 
 	var attemptCounter uint32 = 0
 
@@ -162,7 +163,6 @@ func downloadVersion(updateServerAddress, product string, version insight.Update
 		}
 
 		// Check the MD5 hash of the downloaded file. If it is not right, retry the download.
-		// create an md5 teereader
 		savedFileHash := md5.Sum(body)
 		latestHash := fmt.Sprintf("%32x", savedFileHash)
 		log.Info.Printf("MD5 hash of %s: %s", fileName, latestHash)
