@@ -146,10 +146,10 @@ func main() {
 	case "stop":
 		err = serviceControl.Stop(svcName)
 
-	// NOTE: Delete this section as it is only for debugging purposes.
+	// FIXME: Delete this section as it is only for debugging purposes.
 	case "get":
 		checkForUpdates("agent")
-	// NOTE: End of debugging
+	// FIXME: End of debugging
 
 	default:
 		usage(fmt.Sprintf("invalid command %s", cmd))

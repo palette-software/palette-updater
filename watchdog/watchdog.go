@@ -89,6 +89,8 @@ func obtainUpdateServerAddress() (string, error) {
 }
 
 // FIXME: locating the config file is not generic! This means this way is not going to be okay if we wanted to use this service as an auto-updater for the insight-server
+// NOTE: This only works as long as the watchdog service runs from the very same folder as the agent.
+// But they are supposed to be in the same folder by design.
 func findAgentConfigFile() (string, error) {
 	folderPath, err := osext.ExecutableFolder()
 	if err != nil {
