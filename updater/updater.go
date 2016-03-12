@@ -103,6 +103,20 @@ func stopServices(serviceControl svcControl.ServiceControl) (error) {
     // return err
 }
 
+func createBatchFile(msiPath string, targetDir string) (error) {
+    f, err := os.Create("reinstall.bat")
+    if err != nil {
+        return err
+    }
+    defer f.Close()
+    reinstallCommand := fmt.Sprintf("msiexec /i \"%s\" INSTALLFOLDER=\"%s\" /qn", msiPath, targetDir)
+    _, err = f.WriteString(reinstallCommand)
+    if err != nil {
+        return err
+    }
+    return nil
+}
+
 func reinstallServices(msiPath string) (error) {
     var dst []Win32_Service
     q := wmi.CreateQuery(&dst, "where Name like '%Palette%'")
@@ -119,13 +133,19 @@ func reinstallServices(msiPath string) (error) {
     if targetDir == "" {
         return errors.New("Could not find installed agent.")
     }
-    cmd := exec.Command("msiexec", "/i", msiPath, fmt.Sprintf(`INSTALLFOLDER="%s"`, targetDir), "/qn")
+    err = createBatchFile(msiPath, targetDir)
+    if err != nil {
+        return err
+    }
+    cmd := exec.Command("reinstall.bat")
+    // cmd := exec.Command("msiexec", "/i", msiPath, fmt.Sprintf(`INSTALLFOLDER="%s"`, targetDir), "/qn")
     // cmd := exec.Command("msiexec", "/i", msiPath, "/qn")
     cmd.Stdout = os.Stdout
     cmd.Stderr = os.Stderr
-    log.Info.Printf("About to run: %#v\n", cmd)
-    log.Info.Printf("About to run: %s\n", cmd)
+    // log.Info.Printf("About to run: %#v\n", cmd)
+    // log.Info.Printf("About to run: %s\n", cmd)
     return cmd.Run()
+    //return err
 }
 
 func startServices(serviceControl svcControl.ServiceControl) (error) {
