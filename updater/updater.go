@@ -13,6 +13,20 @@ import (
 )
 
 var Agent = "PaletteInsightAgent"
+var BatchFile = "reinstall.bat"
+
+type Win32_Service struct {
+    Name string
+    PathName string
+    DisplayName string
+    StartName string
+}
+
+type CIM_DataFile struct {
+    Name string
+    Version string
+}
+
 
 // Returns whether the given file or directory exists or not
 func doesExist(path string) (bool, error) {
@@ -26,24 +40,13 @@ func doesExist(path string) (bool, error) {
 	return true, err
 }
 
+// Checks if the update is OK. This practically means checking if it exists for now.
 func checkUpdate(updateLocation string) (error) {
     dirExists, err := doesExist(updateLocation)
     if err != nil || dirExists {
         return err
     }
     return nil
-}
-
-type Win32_Service struct {
-    Name string
-    PathName string
-    DisplayName string
-    StartName string
-}
-
-type CIM_DataFile struct {
-    Name string
-    Version string
 }
 
 func stripPathName(fullName string) (string) {
@@ -58,35 +61,6 @@ func stripPathName(fullName string) (string) {
     // Otherwise we should take the "word" after the first quote
     quoteSplitted := strings.Split(fullName, quote)
     return quoteSplitted[1]
-}
-
-func getDrive(pathName string) (string) {
-    return filepath.VolumeName(pathName)
-}
-
-func getPath(fullPath string) (string) {
-    dir := filepath.Dir(fullPath)
-    if strings.Contains(dir, ":") {
-        dir = strings.Split(dir, ":")[1]
-    }
-    dir = strings.Replace(dir, "\\", "\\\\", -1)
-    return dir + "\\\\"
-}
-
-func getExecutable(fullPath string) (string) {
-    return filepath.Base(fullPath)
-}
-
-func getVersion(pathName string) (string) {
-    var fileData []CIM_DataFile
-    cond := fmt.Sprintf("where Drive=\"%s\" and Path='%s' and Name like '%%%s%%'", getDrive(pathName), getPath(pathName), getExecutable(pathName))
-    q := wmi.CreateQuery(&fileData, cond)
-    log.Info.Println("Query: ", q)
-    _ = wmi.Query(q, &fileData)
-    if len(fileData) == 0 {
-        return ""
-    }
-    return fileData[0].Version
 }
 
 func stopServices(serviceControl svcControl.ServiceControl) (error) {
@@ -104,7 +78,7 @@ func stopServices(serviceControl svcControl.ServiceControl) (error) {
 }
 
 func createBatchFile(msiPath string, targetDir string) (error) {
-    f, err := os.Create("reinstall.bat")
+    f, err := os.Create(BatchFile)
     if err != nil {
         return err
     }
@@ -117,10 +91,13 @@ func createBatchFile(msiPath string, targetDir string) (error) {
     return nil
 }
 
+func deleteBatchFile() {
+    os.Remove(BatchFile)
+}
+
 func reinstallServices(msiPath string) (error) {
     var dst []Win32_Service
     q := wmi.CreateQuery(&dst, "where Name like '%Palette%'")
-    log.Info.Println("Query: ", q)
     err := wmi.Query(q, &dst)
     if err != nil {
         return err
@@ -128,7 +105,6 @@ func reinstallServices(msiPath string) (error) {
     var targetDir string = ""
     for _, srv := range dst {
         targetDir = filepath.Dir(stripPathName(srv.PathName))
-        targetDir = "C:\\1 2"
     }
     if targetDir == "" {
         return errors.New("Could not find installed agent.")
@@ -137,15 +113,12 @@ func reinstallServices(msiPath string) (error) {
     if err != nil {
         return err
     }
-    cmd := exec.Command("reinstall.bat")
-    // cmd := exec.Command("msiexec", "/i", msiPath, fmt.Sprintf(`INSTALLFOLDER="%s"`, targetDir), "/qn")
-    // cmd := exec.Command("msiexec", "/i", msiPath, "/qn")
+    cmd := exec.Command(BatchFile)
     cmd.Stdout = os.Stdout
     cmd.Stderr = os.Stderr
-    // log.Info.Printf("About to run: %#v\n", cmd)
-    // log.Info.Printf("About to run: %s\n", cmd)
-    return cmd.Run()
-    //return err
+    err = cmd.Run()
+    deleteBatchFile()
+    return err
 }
 
 func startServices(serviceControl svcControl.ServiceControl) (error) {
