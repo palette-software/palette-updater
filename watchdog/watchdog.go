@@ -3,9 +3,13 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
+	"strconv"
+	"strings"
+	"time"
+	"os/exec"
+	"io/ioutil"
 
 	insight "github.com/palette-software/insight-server"
 	log "github.com/palette-software/insight-tester/common/logging"
@@ -14,9 +18,7 @@ import (
 	"crypto/md5"
 	"github.com/kardianos/osext"
 	"gopkg.in/yaml.v2"
-	"strconv"
-	"strings"
-	"time"
+	gocp "github.com/cleversoap/go-cp"
 )
 
 func getLatestVersion(product, updateServerAddress string) (insight.UpdateVersion, error) {
@@ -82,7 +84,7 @@ func getCurrentVersion(product string) (currentVersion insight.Version, err erro
 		return insight.Version{0, 0, 0}, err
 	}
 
-	currentVersion.Patch, err = strconv.Atoi(versionNumbers[5])
+	currentVersion.Patch, err = strconv.Atoi(versionNumbers[2])
 	if err != nil {
 		log.Error.Printf("Failed to retrieve patch version for %s! Error message: %s", product, err)
 		return insight.Version{0, 0, 0}, err
@@ -92,8 +94,29 @@ func getCurrentVersion(product string) (currentVersion insight.Version, err erro
 	return currentVersion, err
 }
 
-func performUpdate() error {
-	// FIXME: Implement update process
+func performUpdate(updateFilePath string) (err error){
+	tempUpdaterFileName := "updater_in_action.exe"
+	err = gocp.Copy("updater.exe", tempUpdaterFileName)
+	if err != nil {
+		log.Error.Println("Failed to make copy of updater.exe! Error message: ", err)
+		return err
+	}
+	defer func() {
+		err = os.Remove(tempUpdaterFileName)
+		if err != nil {
+			log.Error.Printf("Failed to delete %s! Error message: %s", tempUpdaterFileName, err)
+		}
+	}()
+
+	cmd := exec.Command(tempUpdaterFileName, updateFilePath)
+	//cmd.Stdout = os.Stdout
+	//cmd.Stderr = os.Stderr
+	err = cmd.Run()
+	if err != nil {
+		log.Error.Printf("Failed to execute %s! Error message: %s", tempUpdaterFileName, err)
+	}
+
+	log.Info.Printf("Successfully performed update: %s", updateFilePath)
 	return nil
 }
 
@@ -158,8 +181,8 @@ func findAgentConfigFile() (string, error) {
 	return configPath, nil
 }
 
-// Download the specified version
-func downloadVersion(updateServerAddress, product string, version insight.UpdateVersion) error {
+// Downloads the specified version and returns the name of the file or an error if there was any
+func downloadVersion(updateServerAddress, product string, version insight.UpdateVersion) (string, error) {
 	versionString := version.String()
 	log.Info.Printf("Downloading %s version: %s", product, versionString)
 	fileName := fmt.Sprintf("%s-%s", product, versionString)
@@ -192,7 +215,7 @@ func downloadVersion(updateServerAddress, product string, version insight.Update
 		resp, err := http.Get(endpoint)
 		if err != nil {
 			log.Error.Println("Failed to download %s version: %s", product, versionString)
-			return err
+			return "", err
 		}
 		defer resp.Body.Close()
 
@@ -204,7 +227,7 @@ func downloadVersion(updateServerAddress, product string, version insight.Update
 		err = ioutil.WriteFile(fileName, body, 777)
 		if err != nil {
 			log.Error.Printf("Failed to save file: %s! Error message: %s", fileName, err)
-			return err
+			return "", err
 		}
 
 		// Check the MD5 hash of the downloaded file. If it is not right, retry the download.
@@ -223,7 +246,7 @@ func downloadVersion(updateServerAddress, product string, version insight.Update
 	}
 
 	log.Info.Printf("Saved update file: %s", fileName)
-	return nil
+	return fileName, nil
 }
 
 func checkForUpdates(product string) {
@@ -253,12 +276,19 @@ func checkForUpdates(product string) {
 		log.Info.Printf("Found newer %s version on server.", product)
 
 		// Download the latest version
-		err = downloadVersion(updateServerAddress, product, latestVersion)
+		updateFileName, err := downloadVersion(updateServerAddress, product, latestVersion)
 		if err != nil {
 			return
 		}
 
-		err = performUpdate()
+		folderPath, err := osext.ExecutableFolder()
+		if err != nil {
+			log.Fatal("Failed to get the execution folder: ", err)
+			return
+		}
+
+		updateFilePath := folderPath + "\\" + updateFileName
+		err = performUpdate(updateFilePath)
 		if err != nil {
 			log.Error.Printf("Failed to perform the %s update: %s", product, err)
 		}
