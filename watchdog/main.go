@@ -111,8 +111,7 @@ func main() {
 
 	// Set the levels to be ignored to ioutil.Discard
 	// Levels:  DEBUG,   INFO,    WARNING, ERROR,   FATAL
-	log.InitLog(ioutil.Discard, os.Stdout, os.Stderr, os.Stderr, os.Stderr)
-	//log.InitLog(logFile, logFile, logFile, logFile, logFile)
+	log.InitLog(logFile, logFile, logFile, logFile, logFile)
 
 	log.Debug.Printf("Starting up %s...", svcDisplayName)
 

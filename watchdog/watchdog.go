@@ -1,7 +1,3 @@
-// Copyright 2012 The Go Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
-
 package main
 
 import (
@@ -13,10 +9,13 @@ import (
 
 	insight "github.com/palette-software/insight-server"
 	log "github.com/palette-software/insight-tester/common/logging"
+	servdis "github.com/palette-software/palette-updater/services-discovery"
 
 	"crypto/md5"
 	"github.com/kardianos/osext"
 	"gopkg.in/yaml.v2"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -42,9 +41,55 @@ func getLatestVersion(product, updateServerAddress string) (insight.UpdateVersio
 	return version, nil
 }
 
-func getCurrentVersion(product string) (insight.Version, error) {
-	// FIXME: Find a way to determine the currently installed version of the given product
-	return insight.Version{1, 3, 2}, nil
+func getCurrentVersion(product string) (currentVersion insight.Version, err error) {
+	var svcToLookUp string
+
+	switch product {
+	case "agent":
+		svcToLookUp = "PaletteInsightAgent"
+	default:
+		err = fmt.Errorf("Unexpected product! Failed to map %s to service name!", product)
+		log.Error.Println(err)
+		return insight.Version{0, 0, 0}, err
+	}
+
+	versionStr, err := servdis.GetServiceVersion(svcToLookUp)
+	if err != nil {
+		return insight.Version{0, 0, 0}, err
+	}
+
+	// Handle panics during parsing the version string
+	defer func() {
+		if r := recover(); r != nil {
+			// Set the return values
+			currentVersion = insight.Version{0, 0, 0}
+			err = fmt.Errorf("Panic recovered while getting current version of %s. Recovered value: %s", product, r)
+			log.Error.Println(err)
+		}
+	}()
+
+	// Convert string version into Version
+	versionNumbers := strings.Split(versionStr, ".")
+	currentVersion.Major, err = strconv.Atoi(versionNumbers[0])
+	if err != nil {
+		log.Error.Printf("Failed to retrieve major version for %s! Error message: %s", product, err)
+		return insight.Version{0, 0, 0}, err
+	}
+
+	currentVersion.Minor, err = strconv.Atoi(versionNumbers[1])
+	if err != nil {
+		log.Error.Printf("Failed to retrieve minor version for %s! Error message: %s", product, err)
+		return insight.Version{0, 0, 0}, err
+	}
+
+	currentVersion.Patch, err = strconv.Atoi(versionNumbers[5])
+	if err != nil {
+		log.Error.Printf("Failed to retrieve patch version for %s! Error message: %s", product, err)
+		return insight.Version{0, 0, 0}, err
+	}
+
+	log.Info.Printf("Obtained version for %s: %s", product, currentVersion.String())
+	return currentVersion, err
 }
 
 func performUpdate() error {
@@ -199,7 +244,7 @@ func checkForUpdates(product string) {
 	// Obtain the currently installed version
 	currentVersion, err := getCurrentVersion(product)
 	if err != nil {
-		log.Error.Printf("Failed to retrieve current %s version.", product)
+		// Errors are logged inside the function
 		return
 	}
 
