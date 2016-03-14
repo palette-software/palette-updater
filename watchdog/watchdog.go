@@ -3,22 +3,22 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"time"
-	"os/exec"
-	"io/ioutil"
 
 	insight "github.com/palette-software/insight-server"
 	log "github.com/palette-software/insight-tester/common/logging"
 	servdis "github.com/palette-software/palette-updater/services-discovery"
 
 	"crypto/md5"
+	gocp "github.com/cleversoap/go-cp"
 	"github.com/kardianos/osext"
 	"gopkg.in/yaml.v2"
-	gocp "github.com/cleversoap/go-cp"
 )
 
 func getLatestVersion(product, updateServerAddress string) (insight.UpdateVersion, error) {
@@ -94,7 +94,7 @@ func getCurrentVersion(product string) (currentVersion insight.Version, err erro
 	return currentVersion, err
 }
 
-func performUpdate(updateFilePath string) (err error){
+func performUpdate(updateFilePath string) (err error) {
 	tempUpdaterFileName := "updater_in_action.exe"
 	err = gocp.Copy("updater.exe", tempUpdaterFileName)
 	if err != nil {
