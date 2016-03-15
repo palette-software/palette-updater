@@ -24,7 +24,6 @@ import (
 
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/debug"
-	"io/ioutil"
 )
 
 const svcDisplayName = "Palette Watchdog"

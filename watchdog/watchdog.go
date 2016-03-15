@@ -28,11 +28,17 @@ func getLatestVersion(product, updateServerAddress string) (insight.UpdateVersio
 	endpoint := fmt.Sprintf("%s/updates/latest-version?product=%s", updateServerAddress, product)
 	resp, err := http.Get(endpoint)
 	if err != nil {
-		log.Error.Println("Error during querying latest agent version: ", err)
+		log.Error.Printf("Error during querying latest %s version: ", product, err)
 		return version, err
 	}
 	log.Debug.Printf("Latest %s version response: %s", product, resp)
 	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		err = fmt.Errorf("Getting latest %s version failed! Server response: %s", product, resp)
+		log.Error.Println(err)
+		return version, err
+	}
 
 	// Decode the JSON in the response
 	if err := json.NewDecoder(resp.Body).Decode(&version); err != nil {
@@ -219,6 +225,12 @@ func downloadVersion(updateServerAddress, product string, version insight.Update
 		}
 		defer resp.Body.Close()
 
+		if resp.StatusCode != 200 {
+			err = fmt.Errorf("Getting %s version: %s failed! Server response: %s", product, versionString, resp)
+			log.Error.Println(err)
+			return "", err
+		}
+
 		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			log.Error.Printf("Failed to read contents of downloaded file: %s. Error message: %s", fileName, err)
@@ -273,7 +285,7 @@ func checkForUpdates(product string) {
 
 	// Perform the update, if there is a newer version
 	if latestVersion.String() > currentVersion.String() {
-		log.Info.Printf("Found newer %s version on server.", product)
+		log.Info.Printf("Found newer %s version on server. Current version is %s", product, currentVersion.String())
 
 		// Download the latest version
 		updateFileName, err := downloadVersion(updateServerAddress, product, latestVersion)
