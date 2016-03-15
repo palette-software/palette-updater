@@ -51,6 +51,8 @@ loop:
 	for {
 		select {
 		case <-tick:
+			checkForUpdates("updater")
+			checkForUpdates("watchdog")
 			checkForUpdates("agent")
 
 		case cr := <-changeRequest:
@@ -148,6 +150,8 @@ func main() {
 
 	// FIXME: Delete this section as it is only for debugging purposes.
 	case "get":
+		checkForUpdates("updater")
+		checkForUpdates("watchdog")
 		checkForUpdates("agent")
 	// FIXME: End of debugging
 

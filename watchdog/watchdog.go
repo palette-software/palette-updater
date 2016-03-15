@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
-	"time"
 
 	insight "github.com/palette-software/insight-server"
 	log "github.com/palette-software/insight-tester/common/logging"
@@ -194,69 +193,55 @@ func downloadVersion(updateServerAddress, product string, version insight.Update
 	fileName := fmt.Sprintf("%s-%s", product, versionString)
 	endpoint := fmt.Sprintf("%s/updates/products/%s/%s/%s", updateServerAddress, product, versionString, fileName)
 
-	// FIXME: This is not platform independent!
-	fileName = fileName + ".msi"
+	// Download
+	resp, err := http.Get(endpoint)
+	if err != nil {
+		log.Error.Println("Failed to download %s version: %s", product, versionString)
+		return "", err
+	}
+	defer resp.Body.Close()
 
-	var attemptCounter uint32 = 0
-
-	// Except for the first download attempt, wait for a while before the next download attempt.
-	// But not more than 30 minutes.
-	const maxWaitSeconds uint32 = 30 * 60
-	// The wait duration is increased by 10 seconds on each attempt.
-	const waitIncreaseUnit uint32 = 10
-
-	for {
-		waitSeconds := attemptCounter * waitIncreaseUnit
-		if waitSeconds > maxWaitSeconds {
-			waitSeconds = maxWaitSeconds
-		}
-		time.Sleep(time.Duration(waitSeconds) * time.Second)
-
-		attemptCounter++
-		if attemptCounter > 1 {
-			log.Info.Printf("Downloading %s version: %s (%d. attempt)", product, versionString, attemptCounter)
-		}
-
-		// Download
-		resp, err := http.Get(endpoint)
-		if err != nil {
-			log.Error.Println("Failed to download %s version: %s", product, versionString)
-			return "", err
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != 200 {
-			err = fmt.Errorf("Getting %s version: %s failed! Server response: %s", product, versionString, resp)
-			log.Error.Println(err)
-			return "", err
-		}
-
-		body, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			log.Error.Printf("Failed to read contents of downloaded file: %s. Error message: %s", fileName, err)
-		}
-
-		err = ioutil.WriteFile(fileName, body, 777)
-		if err != nil {
-			log.Error.Printf("Failed to save file: %s! Error message: %s", fileName, err)
-			return "", err
-		}
-
-		// Check the MD5 hash of the downloaded file. If it is not right, retry the download.
-		savedFileHash := md5.Sum(body)
-		latestHash := fmt.Sprintf("%32x", savedFileHash)
-		log.Info.Printf("MD5 hash of %s: %s", fileName, latestHash)
-
-		if latestHash != version.Md5 {
-			log.Warning.Printf("MD5 hash mismatch for file: %s! Expected hash is %s, but calculated is %s. Retrying file download.",
-				fileName, version.Md5, latestHash)
-			continue
-		}
-
-		// Successfully downloaded the file
-		break
+	if resp.StatusCode != 200 {
+		err = fmt.Errorf("Getting %s version: %s failed! Server response: %s", product, versionString, resp)
+		log.Error.Println(err)
+		return "", err
 	}
 
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Error.Printf("Failed to read contents of downloaded file: %s. Error message: %s", fileName, err)
+	}
+
+	// Save the update into the updates folder
+	err = os.Mkdir("updates", 777)
+	if err != nil {
+		if !strings.Contains(err.Error(), "already exists") {
+			log.Warning.Println("Failed to create updates folder. Error message: ", err)
+		}
+	}
+
+	// FIXME: "\\" is not platform independent. Consider using "/" instead.
+	fileName = "updates\\" + fileName
+
+	err = ioutil.WriteFile(fileName, body, 777)
+	if err != nil {
+		log.Error.Printf("Failed to save file: %s! Error message: %s", fileName, err)
+		return "", err
+	}
+
+	// Check the MD5 hash of the downloaded file. If it is not right, retry the download in the next update round.
+	savedFileHash := md5.Sum(body)
+	latestHash := fmt.Sprintf("%32x", savedFileHash)
+	log.Info.Printf("MD5 hash of %s: %s", fileName, latestHash)
+
+	if latestHash != version.Md5 {
+		err = fmt.Errorf("MD5 hash mismatch for file: %s! Expected hash is %s, but calculated is %s.",
+			fileName, version.Md5, latestHash)
+		log.Error.Println(err)
+		return "", err
+	}
+
+	// Successfully downloaded the file
 	log.Info.Printf("Saved update file: %s", fileName)
 	return fileName, nil
 }
@@ -285,7 +270,8 @@ func checkForUpdates(product string) {
 
 	// Perform the update, if there is a newer version
 	if latestVersion.String() > currentVersion.String() {
-		log.Info.Printf("Found newer %s version on server. Current version is %s", product, currentVersion.String())
+		log.Info.Printf("Found newer %s version (%s) on server. Current version is %s",
+			product, latestVersion.String(), currentVersion.String())
 
 		// Download the latest version
 		updateFileName, err := downloadVersion(updateServerAddress, product, latestVersion)
