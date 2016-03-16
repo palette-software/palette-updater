@@ -21,6 +21,9 @@ before_install:
   - go version
   - go env
 
+script:
+  - go get -t -v ./...
+
 after_success:
   - zip palette-updater.zip $GOPATH/bin/*
 
