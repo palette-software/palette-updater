@@ -57,7 +57,7 @@ func getVersion(pathName string) string {
 	var fileData []CIM_DataFile
 	cond := fmt.Sprintf("where Drive=\"%s\" and Path='%s' and Name like '%%%s%%'", getDrive(pathName), getPath(pathName), getExecutable(pathName))
 	q := wmi.CreateQuery(&fileData, cond)
-	log.Info.Println("Query: ", q)
+	log.Debug.Println("Query: ", q)
 	_ = wmi.Query(q, &fileData)
 	if len(fileData) == 0 {
 		return ""
