@@ -25,11 +25,11 @@ script:
   - go get -t -v ./...
 
 after_success:
-  - zip -r -j palette-updater-$(TRAVIS_TAG).zip $GOPATH/bin/*
+  - zip -r -j palette-updater-${TRAVIS_TAG}.zip $GOPATH/bin/*
 
 deploy:
   provider: releases
   api_key: $GITHUB_TOKEN
   file:
-    - palette-updater-$(TRAVIS_TAG).zip
+    - palette-updater-${TRAVIS_TAG}.zip
   skip_cleanup: true
