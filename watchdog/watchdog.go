@@ -20,6 +20,23 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+// TODO: This Version comparator should be placed into insight-server
+func IsNewer(thisVersion, otherVersion insight.Version) bool {
+	if thisVersion.Major > otherVersion.Major {
+		return true
+	} else if thisVersion.Major == otherVersion.Major {
+		if thisVersion.Minor > otherVersion.Minor {
+			return true
+		} else if thisVersion.Major == otherVersion.Minor {
+			if thisVersion.Patch > otherVersion.Patch {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
 func getLatestVersion(product, updateServerAddress string) (insight.UpdateVersion, error) {
 	log.Debug.Printf("Getting latest %s version...", product)
 
@@ -220,15 +237,6 @@ func downloadVersion(updateServerAddress, product string, version insight.Update
 		}
 	}
 
-	// FIXME: "\\" is not platform independent. Consider using "/" instead.
-	fileName = "updates\\" + fileName
-
-	err = ioutil.WriteFile(fileName, body, 777)
-	if err != nil {
-		log.Error.Printf("Failed to save file: %s! Error message: %s", fileName, err)
-		return "", err
-	}
-
 	// Check the MD5 hash of the downloaded file. If it is not right, retry the download in the next update round.
 	savedFileHash := md5.Sum(body)
 	latestHash := fmt.Sprintf("%32x", savedFileHash)
@@ -238,6 +246,15 @@ func downloadVersion(updateServerAddress, product string, version insight.Update
 		err = fmt.Errorf("MD5 hash mismatch for file: %s! Expected hash is %s, but calculated is %s.",
 			fileName, version.Md5, latestHash)
 		log.Error.Println(err)
+		return "", err
+	}
+
+	// FIXME: "\\" is not platform independent. Consider using "/" instead.
+	fileName = "updates\\" + fileName
+
+	err = ioutil.WriteFile(fileName, body, 777)
+	if err != nil {
+		log.Error.Printf("Failed to save file: %s! Error message: %s", fileName, err)
 		return "", err
 	}
 
@@ -269,7 +286,7 @@ func checkForUpdates(product string) {
 	}
 
 	// Perform the update, if there is a newer version
-	if latestVersion.String() > currentVersion.String() {
+	if IsNewer(latestVersion.Version, currentVersion) {
 		log.Info.Printf("Found newer %s version (%s) on server. Current version is %s",
 			product, latestVersion.String(), currentVersion.String())
 
