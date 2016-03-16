@@ -68,9 +68,16 @@ loop:
 	for {
 		select {
 		case <-tick:
-			checkForUpdates("updater")
-			checkForUpdates("watchdog")
-			checkForUpdates("agent")
+			// Do the checks in a different thread so that the main thread may remain responsive
+			go func() {
+				// Remove the updates folder to make sure the disk is not going to filled
+				// with orphaned update files
+				os.RemoveAll("updates")
+
+				checkForUpdates("updater")
+				checkForUpdates("watchdog")
+				checkForUpdates("agent")
+			}()
 
 		case cr := <-changeRequest:
 			switch cr.Cmd {
@@ -131,17 +138,7 @@ func main() {
 	// Levels:  DEBUG,   INFO,    WARNING, ERROR,   FATAL
 	log.InitLog(logFile, logFile, logFile, logFile, logFile)
 
-	log.Debug.Printf("Starting up %s...", svcDisplayName)
-
-	isIntSess, err := svc.IsAnInteractiveSession()
-	if err != nil {
-		log.Fatalf("failed to determine if we are running in an interactive session: %v", err)
-	}
-	if !isIntSess {
-		// FIXME: runService is not platform-independent
-		runService(svcName, false)
-		return
-	}
+	log.Info.Printf("Firing up %s... Command line %s", svcDisplayName, os.Args)
 
 	if len(os.Args) < 2 {
 		usage("no command specified")
@@ -155,7 +152,6 @@ func main() {
 	case "debug":
 		// FIXME: runService is not platform-independent
 		runService(svcName, true)
-		return
 	case "install":
 		err = serviceControl.Install(svcName, "Palette Watchdog")
 	case "remove":
@@ -164,19 +160,50 @@ func main() {
 		err = serviceControl.Start(svcName)
 	case "stop":
 		err = serviceControl.Stop(svcName)
+	case "is":
+		// In this case there needs to be more command line arguments, such as "auto-started"
+		if len(os.Args) < 3 {
+			log.Error.Printf("Unexpected end of command line arguments! Command line arguments: %s", os.Args)
+		} else {
+			cmdSecond := strings.ToLower(os.Args[2])
+			switch cmdSecond {
+			case "auto-started":
+				isIntSess, err := svc.IsAnInteractiveSession()
+				if err != nil {
+					log.Fatalf("failed to determine if we are running in an interactive session: %v", err)
+				}
+				if !isIntSess {
+					// FIXME: runService is not platform-independent
+					runService(svcName, false)
+				} else {
+					err = serviceControl.Start(svcName)
+				}
+			default:
+				log.Error.Println("Unexpected comamnd after \"is\": ", cmdSecond)
+			}
+		}
 
 	// FIXME: Delete this section as it is only for debugging purposes.
 	case "get":
+		// Remove the updates folder to make sure the disk is not going to filled
+		// with orphaned update files
+		err = os.RemoveAll("updates")
+
 		checkForUpdates("updater")
 		checkForUpdates("watchdog")
 		checkForUpdates("agent")
 	// FIXME: End of debugging
 
 	default:
+		log.Fatalf("Invalid startup command argument: \"%s\"", cmd)
 		usage(fmt.Sprintf("invalid command %s", cmd))
 	}
+
 	if err != nil {
 		log.Fatalf("failed to %s %s: %v", cmd, svcName, err)
+		return
 	}
+
+	log.Info.Printf("Command %s execution finished.", os.Args)
 	return
 }
