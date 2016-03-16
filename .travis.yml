@@ -1,0 +1,35 @@
+# see http://about.travis-ci.org/docs/user/languages/go/ for more hints
+language: go
+
+go:
+  - 1.5
+
+env:
+    matrix:
+        - GIMME_OS=windows GIMME_ARCH=amd64
+global:
+  - secure: "iK8Zcm1f3/BbCvMgEISgZ0WvmHpk2V4EQHycZlae1hGB2Xr8R9MmIV+fu19+lBu1QOSBpXmUeVJvSwfe9sJHYTKJbcsHeGQM7AIAESvIOiIIZbEDp98WGXwEfxQ1733TgeEX10St4PK8kE3v7G+E5qYhUffjO4DLuE9BfmaQRei2BbcG382rnj9c8vYWF4O00fZEzcDvnwvD9IaeQnB4Jy4e0kkHsIJfvOkwdxbLf6amX9Q7fF7SqBnxHgmvitHef2RBMjBfjT8StUqrBoUVt93j2XXY8m6WWpggaAjilWzvb9Kw9W4XwLryqM+cMCOnbx14SxElrAmmxKjdRFPlSuAWbVaX7O5rK4aANMxXJ7paNUk9bqaWXKor+NsUQ5HC3zPHTRHsmV53J2Yd9bk7n2joAswNXvdN1+KzHY87jUbxZLSakSJ7aSW8ac8MMaUAEzmZizzmqSWBNXfpWFmqvtpjS7fP2zwWfz6f2YWIoVL0n/4+jIWJTR+Ai6fT6RDK3J+gj9A3U4KC2k328nV5mTxFB8SkqWpmJ5RUE6gtE5AZzIcba0mF3l7qKAjD3RjugnPqZ+16fmjjOM60dEeFjhkS43kHF9b7yO+Lk2l+66ruQg4pERj2TbuZqGf6kb95zcflE2vZQ5IjtsswwiDWCIoOI2Praf5UU22fcMl7lkw="
+
+before_install:
+  - cp .netrc ~
+  - chmod 600 ~/.netrc
+  - chmod 600 .netrc
+  - curl -o gimme -sL https://raw.githubusercontent.com/travis-ci/gimme/master/gimme
+  - chmod u+x gimme
+  - unset GOROOT GOTOOLDIR GIMME_NO_ENV_ALIAS
+  - eval "$(./gimme 1.5)"
+  - go version
+  - go env
+
+script:
+  - go get -t -v ./...
+
+after_success:
+  - zip -r -j palette-updater-${TRAVIS_TAG}.zip $GOPATH/bin/*
+
+deploy:
+  provider: releases
+  api_key: $GITHUB_TOKEN
+  file:
+    - palette-updater-${TRAVIS_TAG}.zip
+  skip_cleanup: true
