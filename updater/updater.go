@@ -109,7 +109,7 @@ func main() {
 		panic(err)
 	}
 
-	// close fo on exit and check for its returned error
+	// close file on exit and check for its returned error
 	defer func() {
 		if err := logFile.Close(); err != nil {
 			fmt.Println("Failed to close log file! ", err)
