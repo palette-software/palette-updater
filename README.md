@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.com/palette-software/palette-updater.svg?token=qWG5FJDvsjLrsJpXgxSJ&branch=master)](https://travis-ci.com/palette-software/palette-updater)
+
 # Palette Auto Updater
 
 ## gofmt pre-commit hook:
