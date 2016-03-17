@@ -71,19 +71,6 @@ loop:
 		case <-tick:
 			// Do the checks in a different thread so that the main thread may remain responsive
 			go func() {
-				// Change the working directory to the place where the service .exe lives, otherwise
-				// relative paths end up in Windows/System32
-				workingDir, err := osext.ExecutableFolder()
-				if err != nil {
-					log.Error.Println("Failed to get the execution folder: ", err)
-					return
-				}
-				err = os.Chdir(workingDir)
-				if err != nil {
-					log.Error.Println("Failed to set working directory to the execution folder! Error message: ", err)
-					return
-				}
-
 				// Remove the updates folder to make sure the disk is not going to filled
 				// with orphaned update files
 				os.RemoveAll("updates")
@@ -128,12 +115,24 @@ func runService(name string, isDebug bool) {
 	log.Info.Printf("%s service stopped", name)
 }
 
+var logsFolder, updatesFolder, baseFolder string
+
 func main() {
 	const svcName = "palettewatchdog"
 
+	// Do not use relative paths, otherwise our files will end up in Windows/System32
+	baseFolder, errorToLogLater := osext.ExecutableFolder()
+	if errorToLogLater != nil {
+		baseFolder = ""
+	}
+
+	// Set up our paths
+	logsFolder = baseFolder + "/Logs"
+	updatesFolder = baseFolder + "/Updates"
+
 	// Initialize the log to write into file instead of stderr
 	// open output file
-	logFileName := os.Args[0] + ".log"
+	logFileName := logsFolder + "/watchdog.log"
 	logFile, err := os.OpenFile(logFileName, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
 	if err != nil {
 		fmt.Println("Failed to open log file! ", err)
@@ -153,6 +152,11 @@ func main() {
 	log.InitLog(logFile, logFile, logFile, logFile, logFile)
 
 	log.Info.Printf("Firing up %s... Command line %s", svcDisplayName, os.Args)
+
+	if errorToLogLater != nil {
+		log.Error.Println("Failed to retrieve executable folder, thus base dir is not set! Error message: ",
+			errorToLogLater)
+	}
 
 	if len(os.Args) < 2 {
 		usage("no command specified")

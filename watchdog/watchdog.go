@@ -16,8 +16,8 @@ import (
 
 	"crypto/md5"
 	gocp "github.com/cleversoap/go-cp"
-	"github.com/kardianos/osext"
 	"gopkg.in/yaml.v2"
+	"path/filepath"
 )
 
 func getLatestVersion(product, updateServerAddress string) (insight.UpdateVersion, error) {
@@ -100,8 +100,8 @@ func getCurrentVersion(product string) (currentVersion insight.Version, err erro
 }
 
 func performUpdate(updateFilePath string) (err error) {
-	tempUpdaterFileName := "updater_in_action.exe"
-	err = gocp.Copy("updater.exe", tempUpdaterFileName)
+	tempUpdaterFileName := filepath.Join(baseFolder, "updater_in_action.exe")
+	err = gocp.Copy(filepath.Join(baseFolder ,"updater.exe"), tempUpdaterFileName)
 	if err != nil {
 		log.Error.Println("Failed to make copy of updater.exe! Error message: ", err)
 		return err
@@ -168,15 +168,7 @@ func obtainUpdateServerAddress() (string, error) {
 // NOTE: This only works as long as the watchdog service runs from the very same folder as the agent.
 // But they are supposed to be in the same folder by design.
 func findAgentConfigFile() (string, error) {
-	folderPath, err := osext.ExecutableFolder()
-	if err != nil {
-		log.Fatal("Failed to get the execution folder: ", err)
-		return "", err
-	}
-
-	log.Debug.Println("Execution folder: ", folderPath)
-
-	configPath := folderPath + "/Config/Config.yml"
+	configPath := filepath.Join(baseFolder, "Config", "Config.yml")
 
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		log.Error.Println("Agent config file does not exist! Error message: ", err)
@@ -214,7 +206,7 @@ func downloadVersion(updateServerAddress, product string, version insight.Update
 	}
 
 	// Save the update into the updates folder
-	err = os.Mkdir("updates", 777)
+	err = os.Mkdir(updatesFolder, 777)
 	if err != nil {
 		if !strings.Contains(err.Error(), "already exists") {
 			log.Warning.Println("Failed to create updates folder. Error message: ", err)
@@ -233,8 +225,7 @@ func downloadVersion(updateServerAddress, product string, version insight.Update
 		return "", err
 	}
 
-	// FIXME: "\\" is not platform independent. Consider using "/" instead.
-	fileName = "updates\\" + fileName
+	fileName = filepath.Join(updatesFolder, fileName)
 
 	err = ioutil.WriteFile(fileName, body, 777)
 	if err != nil {
@@ -280,13 +271,7 @@ func checkForUpdates(product string) {
 			return
 		}
 
-		folderPath, err := osext.ExecutableFolder()
-		if err != nil {
-			log.Fatal("Failed to get the execution folder: ", err)
-			return
-		}
-
-		updateFilePath := folderPath + "\\" + updateFileName
+		updateFilePath := filepath.Join(baseFolder, updateFileName)
 		err = performUpdate(updateFilePath)
 		if err != nil {
 			log.Error.Printf("Failed to perform the %s update: %s", product, err)
