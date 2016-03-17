@@ -36,7 +36,7 @@ func StripPathName(fullName string) string {
 
 func GetServiceVersion(serviceName string) (string, error) {
 	var dst []Win32_Service
-	q := wmi.CreateQuery(&dst, "where Name like '%Palette%'")
+	q := wmi.CreateQuery(&dst, "where Name like '%PaletteInsight%'")
 	err := wmi.Query(q, &dst)
 	if err != nil {
 		log.Error.Printf("Failed to get version of service: %s. Error message: %s", serviceName, err)
