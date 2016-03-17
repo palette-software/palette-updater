@@ -37,7 +37,7 @@ import (
 	"time"
 
 	log "github.com/palette-software/insight-tester/common/logging"
-	svcControl "github.com/palette-software/insight-tester/common/service_control"
+	svcControl "github.com/palette-software/palette-updater/service_control"
 
 	"github.com/kardianos/osext"
 	"golang.org/x/sys/windows/svc"
