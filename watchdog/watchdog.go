@@ -20,23 +20,6 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-// TODO: This Version comparator should be placed into insight-server
-func IsNewer(thisVersion, otherVersion insight.Version) bool {
-	if thisVersion.Major > otherVersion.Major {
-		return true
-	} else if thisVersion.Major == otherVersion.Major {
-		if thisVersion.Minor > otherVersion.Minor {
-			return true
-		} else if thisVersion.Major == otherVersion.Minor {
-			if thisVersion.Patch > otherVersion.Patch {
-				return true
-			}
-		}
-	}
-
-	return false
-}
-
 func getLatestVersion(product, updateServerAddress string) (insight.UpdateVersion, error) {
 	log.Debug.Printf("Getting latest %s version...", product)
 
@@ -130,6 +113,7 @@ func performUpdate(updateFilePath string) (err error) {
 		}
 	}()
 
+	log.Info.Printf("Performing update: %s", updateFilePath)
 	cmd := exec.Command(tempUpdaterFileName, updateFilePath)
 	//cmd.Stdout = os.Stdout
 	//cmd.Stderr = os.Stderr
@@ -286,7 +270,7 @@ func checkForUpdates(product string) {
 	}
 
 	// Perform the update, if there is a newer version
-	if IsNewer(latestVersion.Version, currentVersion) {
+	if insight.IsNewerVersion(&latestVersion.Version, &currentVersion) {
 		log.Info.Printf("Found newer %s version (%s) on server. Current version is %s",
 			product, latestVersion.String(), currentVersion.String())
 
@@ -307,5 +291,8 @@ func checkForUpdates(product string) {
 		if err != nil {
 			log.Error.Printf("Failed to perform the %s update: %s", product, err)
 		}
+	} else {
+		log.Debug.Printf("Current version is %s. Latest available version: %s is not newer. No need to update.",
+			currentVersion.String(), latestVersion.Version.String())
 	}
 }

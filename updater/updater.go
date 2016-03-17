@@ -99,7 +99,30 @@ func startServices(serviceControl svcControl.ServiceControl) error {
 }
 
 func main() {
-	log.Init()
+	// Initialize the log to write into file instead of stderr
+	// open output file
+	os.Mkdir("Logs", 777)
+	logFileName := "Logs/updater.log"
+	logFile, err := os.OpenFile(logFileName, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		fmt.Println("Failed to open log file! ", err)
+		panic(err)
+	}
+
+	// close file on exit and check for its returned error
+	defer func() {
+		if err := logFile.Close(); err != nil {
+			fmt.Println("Failed to close log file! ", err)
+			panic(err)
+		}
+	}()
+
+	// Set the levels to be ignored to ioutil.Discard
+	// Levels:  DEBUG,   INFO,    WARNING, ERROR,   FATAL
+	log.InitLog(logFile, logFile, logFile, logFile, logFile)
+
+	log.Info.Printf("Firing up updater... Command line %s", os.Args)
+
 	if len(os.Args) < 2 {
 		log.Error.Printf("Usage: %s installer_file\n", os.Args[0])
 		os.Exit(1)
@@ -107,7 +130,7 @@ func main() {
 	installerFile := os.Args[1]
 
 	log.Info.Println("Checking prerequisites.")
-	err := checkUpdate(os.Args[1])
+	err = checkUpdate(os.Args[1])
 	if err != nil {
 		log.Error.Printf("Stopping update as could not validate update package: %s", err)
 		os.Exit(1)
