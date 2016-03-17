@@ -121,12 +121,13 @@ func main() {
 	const svcName = "palettewatchdog"
 
 	// Do not use relative paths, otherwise our files will end up in Windows/System32
-	baseFolder, errorToLogLater := osext.ExecutableFolder()
+	execFolder, errorToLogLater := osext.ExecutableFolder()
 	if errorToLogLater != nil {
 		baseFolder = ""
 	}
 
 	// Set up our paths
+	baseFolder = execFolder
 	logsFolder = baseFolder + "/Logs"
 	updatesFolder = baseFolder + "/Updates"
 
@@ -157,6 +158,8 @@ func main() {
 		log.Error.Println("Failed to retrieve executable folder, thus base dir is not set! Error message: ",
 			errorToLogLater)
 	}
+
+	log.Info.Println("Base folder is: ", baseFolder)
 
 	if len(os.Args) < 2 {
 		usage("no command specified")
