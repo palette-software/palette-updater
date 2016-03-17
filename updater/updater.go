@@ -5,11 +5,12 @@ import (
 	"fmt"
 	wmi "github.com/StackExchange/wmi"
 	log "github.com/palette-software/insight-tester/common/logging"
-	svcControl "github.com/palette-software/insight-tester/common/service_control"
+	svcControl "github.com/palette-software/palette-updater/service_control"
 	servdis "github.com/palette-software/palette-updater/services-discovery"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"github.com/kardianos/osext"
 )
 
 var Agent = "PaletteInsightAgent"
@@ -99,10 +100,17 @@ func startServices(serviceControl svcControl.ServiceControl) error {
 }
 
 func main() {
+	// Do not use relative paths, otherwise our files will end up in Windows/System32
+	execFolder, errorToLogLater := osext.ExecutableFolder()
+	if errorToLogLater != nil {
+		execFolder = ""
+	}
+
 	// Initialize the log to write into file instead of stderr
 	// open output file
-	os.Mkdir("Logs", 777)
-	logFileName := "Logs/updater.log"
+	logsFolder := filepath.Join(execFolder, "Logs")
+	os.Mkdir(logsFolder, 777)
+	logFileName := filepath.Join(logsFolder, "updater.log")
 	logFile, err := os.OpenFile(logFileName, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
 	if err != nil {
 		fmt.Println("Failed to open log file! ", err)

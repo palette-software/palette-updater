@@ -133,6 +133,7 @@ func main() {
 
 	// Initialize the log to write into file instead of stderr
 	// open output file
+	os.Mkdir(logsFolder, 777)
 	logFileName := logsFolder + "/watchdog.log"
 	logFile, err := os.OpenFile(logFileName, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
 	if err != nil {

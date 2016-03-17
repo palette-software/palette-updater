@@ -183,8 +183,8 @@ func findAgentConfigFile() (string, error) {
 func downloadVersion(updateServerAddress, product string, version insight.UpdateVersion) (string, error) {
 	versionString := version.String()
 	log.Info.Printf("Downloading %s version: %s", product, versionString)
-	fileName := fmt.Sprintf("%s-%s", product, versionString)
-	endpoint := fmt.Sprintf("%s/updates/products/%s/%s/%s", updateServerAddress, product, versionString, fileName)
+	filePath := fmt.Sprintf("%s-%s", product, versionString)
+	endpoint := fmt.Sprintf("%s/updates/products/%s/%s/%s", updateServerAddress, product, versionString, filePath)
 
 	// Download
 	resp, err := http.Get(endpoint)
@@ -202,7 +202,7 @@ func downloadVersion(updateServerAddress, product string, version insight.Update
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		log.Error.Printf("Failed to read contents of downloaded file: %s. Error message: %s", fileName, err)
+		log.Error.Printf("Failed to read contents of downloaded file: %s. Error message: %s", filePath, err)
 	}
 
 	// Save the update into the updates folder
@@ -216,26 +216,26 @@ func downloadVersion(updateServerAddress, product string, version insight.Update
 	// Check the MD5 hash of the downloaded file. If it is not right, retry the download in the next update round.
 	savedFileHash := md5.Sum(body)
 	latestHash := fmt.Sprintf("%32x", savedFileHash)
-	log.Info.Printf("MD5 hash of %s: %s", fileName, latestHash)
+	log.Info.Printf("MD5 hash of %s: %s", filePath, latestHash)
 
 	if latestHash != version.Md5 {
 		err = fmt.Errorf("MD5 hash mismatch for file: %s! Expected hash is %s, but calculated is %s.",
-			fileName, version.Md5, latestHash)
+			filePath, version.Md5, latestHash)
 		log.Error.Println(err)
 		return "", err
 	}
 
-	fileName = filepath.Join(updatesFolder, fileName)
+	filePath = filepath.Join(updatesFolder, filePath)
 
-	err = ioutil.WriteFile(fileName, body, 777)
+	err = ioutil.WriteFile(filePath, body, 777)
 	if err != nil {
-		log.Error.Printf("Failed to save file: %s! Error message: %s", fileName, err)
+		log.Error.Printf("Failed to save file: %s! Error message: %s", filePath, err)
 		return "", err
 	}
 
 	// Successfully downloaded the file
-	log.Info.Printf("Saved update file: %s", fileName)
-	return fileName, nil
+	log.Info.Printf("Saved update file: %s", filePath)
+	return filePath, nil
 }
 
 func checkForUpdates(product string) {
@@ -266,12 +266,11 @@ func checkForUpdates(product string) {
 			product, latestVersion.String(), currentVersion.String())
 
 		// Download the latest version
-		updateFileName, err := downloadVersion(updateServerAddress, product, latestVersion)
+		updateFilePath, err := downloadVersion(updateServerAddress, product, latestVersion)
 		if err != nil {
 			return
 		}
 
-		updateFilePath := filepath.Join(baseFolder, updateFileName)
 		err = performUpdate(updateFilePath)
 		if err != nil {
 			log.Error.Printf("Failed to perform the %s update: %s", product, err)
