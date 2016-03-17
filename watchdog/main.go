@@ -39,6 +39,7 @@ import (
 	log "github.com/palette-software/insight-tester/common/logging"
 	svcControl "github.com/palette-software/insight-tester/common/service_control"
 
+	"github.com/kardianos/osext"
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/debug"
 )
@@ -70,12 +71,25 @@ loop:
 		case <-tick:
 			// Do the checks in a different thread so that the main thread may remain responsive
 			go func() {
+				// Change the working directory to the place where the service .exe lives, otherwise
+				// relative paths end up in Windows/System32
+				workingDir, err := osext.ExecutableFolder()
+				if err != nil {
+					log.Error.Println("Failed to get the execution folder: ", err)
+					return
+				}
+				err = os.Chdir(workingDir)
+				if err != nil {
+					log.Error.Println("Failed to set working directory to the execution folder! Error message: ", err)
+					return
+				}
+
 				// Remove the updates folder to make sure the disk is not going to filled
 				// with orphaned update files
 				os.RemoveAll("updates")
 
-				checkForUpdates("updater")
-				checkForUpdates("watchdog")
+				//checkForUpdates("updater")
+				//checkForUpdates("watchdog")
 				checkForUpdates("agent")
 			}()
 
@@ -189,8 +203,8 @@ func main() {
 		// with orphaned update files
 		err = os.RemoveAll("updates")
 
-		checkForUpdates("updater")
-		checkForUpdates("watchdog")
+		//checkForUpdates("updater")
+		//checkForUpdates("watchdog")
 		checkForUpdates("agent")
 	// FIXME: End of debugging
 
