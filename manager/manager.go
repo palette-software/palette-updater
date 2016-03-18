@@ -110,7 +110,7 @@ func main() {
 	// open output file
 	logsFolder := filepath.Join(execFolder, "Logs")
 	os.Mkdir(logsFolder, 777)
-	logFileName := filepath.Join(logsFolder, "updater.log")
+	logFileName := filepath.Join(logsFolder, "manager.log")
 	logFile, err := os.OpenFile(logFileName, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
 	if err != nil {
 		fmt.Println("Failed to open log file! ", err)
@@ -129,7 +129,7 @@ func main() {
 	// Levels:  DEBUG,   INFO,    WARNING, ERROR,   FATAL
 	log.InitLog(logFile, logFile, logFile, logFile, logFile)
 
-	log.Info.Printf("Firing up updater... Command line %s", os.Args)
+	log.Info.Printf("Firing up manager... Command line %s", os.Args)
 
 	if len(os.Args) < 2 {
 		log.Error.Printf("Usage: %s installer_file\n", os.Args[0])
