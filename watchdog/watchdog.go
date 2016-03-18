@@ -44,7 +44,7 @@ func getLatestVersion(product, updateServerAddress string) (insight.UpdateVersio
 		return version, fmt.Errorf("Error while deserializing version response body. Error message: %v", err)
 	}
 
-	log.Info.Println("Decoded version: ", version.String())
+	log.Info.Println("Latest available version: ", version.String())
 	return version, nil
 }
 
@@ -95,7 +95,7 @@ func getCurrentVersion(product string) (currentVersion insight.Version, err erro
 		return insight.Version{0, 0, 0}, err
 	}
 
-	log.Info.Printf("Obtained version for %s: %s", product, currentVersion.String())
+	log.Info.Printf("Currently installed %s version: %s", product, currentVersion.String())
 	return currentVersion, err
 }
 

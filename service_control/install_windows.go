@@ -39,7 +39,7 @@ func exePath() (string, error) {
 	return "", err
 }
 
-func installService(name, desc string) error {
+func installService(name, displayName, description string) error {
 	exepath, err := exePath()
 	if err != nil {
 		return err
@@ -49,16 +49,22 @@ func installService(name, desc string) error {
 		return err
 	}
 	defer m.Disconnect()
-	s, err := m.OpenService(name)
+	service, err := m.OpenService(name)
 	if err == nil {
-		s.Close()
+		service.Close()
 		return fmt.Errorf("service %s already exists", name)
 	}
-	s, err = m.CreateService(name, exepath, mgr.Config{DisplayName: desc}, "is", "auto-started")
+	serviceConfig := mgr.Config{
+		DisplayName: displayName,
+		StartType: mgr.StartAutomatic,
+		ErrorControl: mgr.ErrorNormal,
+		Description: description,
+	}
+	service, err = m.CreateService(name, exepath, serviceConfig, "is", "auto-started")
 	if err != nil {
 		return err
 	}
-	defer s.Close()
+	defer service.Close()
 	//err = eventlog.InstallAsEventCreate(name, eventlog.Error|eventlog.Warning|eventlog.Info)
 	//if err != nil {
 	//	s.Delete()

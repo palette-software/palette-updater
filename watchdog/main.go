@@ -63,7 +63,7 @@ type paletteWatchdogService struct{}
 func (pws *paletteWatchdogService) Execute(args []string, changeRequest <-chan svc.ChangeRequest, changes chan<- svc.Status) (ssec bool, errno uint32) {
 	const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown | svc.AcceptPauseAndContinue
 	changes <- svc.Status{State: svc.StartPending}
-	tick := time.Tick(5 * time.Second)
+	tick := time.Tick(3 * time.Minute)
 	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
 loop:
 	for {
@@ -73,7 +73,7 @@ loop:
 			go func() {
 				// Remove the updates folder to make sure the disk is not going to filled
 				// with orphaned update files
-				os.RemoveAll("updates")
+				os.RemoveAll(updatesFolder)
 
 				//checkForUpdates("updater")
 				//checkForUpdates("watchdog")
@@ -118,7 +118,9 @@ func runService(name string, isDebug bool) {
 var logsFolder, updatesFolder, baseFolder string
 
 func main() {
-	const svcName = "palettewatchdog"
+	const svcName = "PaletteInsightWatchdog"
+	const svcDisplayName = "Palette Insight Watchdog"
+	const svcDescription = "Auto-updater for Palette Insight Agent"
 
 	// Do not use relative paths, otherwise our files will end up in Windows/System32
 	execFolder, errorToLogLater := osext.ExecutableFolder()
@@ -175,7 +177,7 @@ func main() {
 		// FIXME: runService is not platform-independent
 		runService(svcName, true)
 	case "install":
-		err = serviceControl.Install(svcName, "Palette Watchdog")
+		err = serviceControl.Install(svcName, svcDisplayName, svcDescription)
 	case "remove":
 		err = serviceControl.Remove(svcName)
 	case "start":
@@ -189,7 +191,7 @@ func main() {
 		} else {
 			cmdSecond := strings.ToLower(os.Args[2])
 			switch cmdSecond {
-			case "auto-started":
+			case "auto-started", "manual-started":
 				isIntSess, err := svc.IsAnInteractiveSession()
 				if err != nil {
 					log.Fatalf("failed to determine if we are running in an interactive session: %v", err)
@@ -209,7 +211,7 @@ func main() {
 	case "get":
 		// Remove the updates folder to make sure the disk is not going to filled
 		// with orphaned update files
-		err = os.RemoveAll("updates")
+		err = os.RemoveAll(updatesFolder)
 
 		//checkForUpdates("updater")
 		//checkForUpdates("watchdog")
