@@ -120,7 +120,7 @@ var logsFolder, updatesFolder, baseFolder string
 func main() {
 	const svcName = "PaletteInsightWatchdog"
 	const svcDisplayName = "Palette Insight Watchdog"
-	const svcDescription = "Auto-updater for Palette Insight Agent"
+	const svcDescription = "Manager for Palette Insight Agent"
 
 	// Do not use relative paths, otherwise our files will end up in Windows/System32
 	execFolder, errorToLogLater := osext.ExecutableFolder()

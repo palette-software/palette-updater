@@ -100,10 +100,10 @@ func getCurrentVersion(product string) (currentVersion insight.Version, err erro
 }
 
 func performUpdate(updateFilePath string) (err error) {
-	tempUpdaterFileName := filepath.Join(baseFolder, "updater_in_action.exe")
-	err = gocp.Copy(filepath.Join(baseFolder ,"updater.exe"), tempUpdaterFileName)
+	tempUpdaterFileName := filepath.Join(baseFolder, "manager_in_action.exe")
+	err = gocp.Copy(filepath.Join(baseFolder ,"manager.exe"), tempUpdaterFileName)
 	if err != nil {
-		log.Error.Println("Failed to make copy of updater.exe! Error message: ", err)
+		log.Error.Println("Failed to make copy of manager.exe! Error message: ", err)
 		return err
 	}
 	defer func() {
