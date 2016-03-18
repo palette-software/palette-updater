@@ -35,3 +35,8 @@ deploy:
   on:
     repo: palette-software/palette-updater
     tags: true
+
+notifications:
+  email:
+    on_success: change
+    on_failure: change
