@@ -7,8 +7,8 @@ import (
 type ServiceControl struct {
 }
 
-func (sc *ServiceControl) Install(svcName, svcDescription string) error {
-	return installService(svcName, svcDescription)
+func (sc *ServiceControl) Install(svcName, svcDisplayName, svcDescription string) error {
+	return installService(svcName, svcDisplayName, svcDescription)
 }
 
 func (sc *ServiceControl) Remove(svcName string) error {
