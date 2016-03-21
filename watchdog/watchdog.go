@@ -18,14 +18,17 @@ import (
 	gocp "github.com/cleversoap/go-cp"
 	"gopkg.in/yaml.v2"
 	"path/filepath"
+	"time"
 )
 
+var lastPerformedCommand string
+
 type Command struct {
-	Ts string
+	Ts      string
 	Command string
 }
 
-func (cmd *Command)String() string {
+func (cmd *Command) String() string {
 	return fmt.Sprintf("{timestamp:%s, command:%s}", cmd.Ts, cmd.Command)
 }
 
@@ -110,7 +113,7 @@ func getCurrentVersion(product string) (currentVersion insight.Version, err erro
 
 func performCommand(arguments ...string) (err error) {
 	tempUpdaterFileName := filepath.Join(baseFolder, "manager_in_action.exe")
-	err = gocp.Copy(filepath.Join(baseFolder ,"manager.exe"), tempUpdaterFileName)
+	err = gocp.Copy(filepath.Join(baseFolder, "manager.exe"), tempUpdaterFileName)
 	if err != nil {
 		log.Error.Println("Failed to make copy of manager.exe! Error message: ", err)
 		return err
@@ -122,16 +125,17 @@ func performCommand(arguments ...string) (err error) {
 		}
 	}()
 
-	log.Info.Printf("Performing update: %s", arguments)
+	log.Info.Printf("Performing command: %s", arguments)
 	cmd := exec.Command(tempUpdaterFileName, arguments...)
 	//cmd.Stdout = os.Stdout
 	//cmd.Stderr = os.Stderr
 	err = cmd.Run()
 	if err != nil {
 		log.Error.Printf("Failed to execute %s! Error message: %s", tempUpdaterFileName, err)
+		return err
 	}
 
-	log.Info.Printf("Successfully performed update: %s", arguments)
+	log.Info.Printf("Successfully performed command: %s", arguments)
 	return nil
 }
 
@@ -321,8 +325,31 @@ func checkForCommand() error {
 	}
 
 	log.Info.Println("Recent command: ", command.String())
+	if lastPerformedCommand == command.Ts {
+		// Command has already been performed. Nothing to do now.
+		log.Debug.Printf("Command %s has already been performed.", command.String())
+		return nil
+	}
+
+	cmdTimestamp, err := time.Parse(time.RFC3339, command.Ts)
+	if err != nil {
+		log.Error.Printf("Failed to parse command timestamp: %s! Error message: %s", command.Ts, err)
+		return err
+	}
+
+	if cmdTimestamp.Add(7 * time.Minute).Before(time.Now()) {
+		log.Debug.Printf("Command %s is not recent enough. Ignore it.",
+			command.String())
+		return nil
+	}
 
 	err = performCommand(command.Command)
+	if err != nil {
+		log.Error.Println("Failed to perform command! Error message: ", err)
+		return err
+	}
 
+	log.Debug.Println("Setting last performed command: ", command.Ts)
+	lastPerformedCommand = command.Ts
 	return err
 }
