@@ -11,10 +11,11 @@ import (
 	"os/exec"
 	"path/filepath"
 	"github.com/kardianos/osext"
+	"strings"
 )
 
-var Agent = "PaletteInsightAgent"
-var BatchFile = "reinstall.bat"
+const Agent = "PaletteInsightAgent"
+const BatchFile = "reinstall.bat"
 
 // Returns whether the given file or directory exists or not
 func doesExist(path string) (bool, error) {
@@ -135,18 +136,45 @@ func main() {
 		log.Error.Printf("Usage: %s installer_file\n", os.Args[0])
 		os.Exit(1)
 	}
-	installerFile := os.Args[1]
 
+	command := strings.ToLower(os.Args[1])
+	var serviceControl svcControl.ServiceControl
+
+	switch command {
+	case "update":
+		// In this case the following command-line argument is going to be
+		// path for the update file.
+		if len(os.Args) < 3 {
+			log.Error.Println("Missing update file for update command!")
+			return
+		}
+		installerFile := os.Args[2]
+		err = doUpdate(installerFile, serviceControl)
+	case "start":
+		err = serviceControl.Start(Agent)
+	case "stop":
+		err = serviceControl.Stop(Agent)
+	default:
+		log.Error.Printf("Unexpected command to execute: %s!", command)
+		return
+	}
+
+	if err != nil {
+		log.Error.Printf("Failed to execute command %s! Error message: %s", command, err)
+		return
+	}
+}
+
+func doUpdate(installerFile string, serviceControl svcControl.ServiceControl) error {
 	log.Info.Println("Checking prerequisites.")
-	err = checkUpdate(os.Args[1])
+	err := checkUpdate(installerFile)
 	if err != nil {
 		log.Error.Printf("Stopping update as could not validate update package: %s", err)
 		os.Exit(1)
 	}
 
 	log.Info.Println("Stopping services.")
-	var serviceControl svcControl.ServiceControl
-	err = stopServices(serviceControl)
+	err = serviceControl.Stop(Agent)
 	if err != nil {
 		// Should not stop here. Service needs to be started anyway from now on.
 		log.Warning.Printf("Could not stop service: %s", err)
@@ -160,6 +188,8 @@ func main() {
 	}
 
 	log.Info.Println("Restarting services.")
-	err = startServices(serviceControl)
+	err = serviceControl.Start(Agent)
 	// When we get error here we should try again....
+
+	return err
 }

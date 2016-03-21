@@ -20,6 +20,15 @@ import (
 	"path/filepath"
 )
 
+type Command struct {
+	Ts string
+	Command string
+}
+
+func (cmd *Command)String() string {
+	return fmt.Sprintf("{timestamp:%s, command:%s}", cmd.Ts, cmd.Command)
+}
+
 func getLatestVersion(product, updateServerAddress string) (insight.UpdateVersion, error) {
 	log.Debug.Printf("Getting latest %s version...", product)
 
@@ -99,7 +108,7 @@ func getCurrentVersion(product string) (currentVersion insight.Version, err erro
 	return currentVersion, err
 }
 
-func performUpdate(updateFilePath string) (err error) {
+func performCommand(arguments ...string) (err error) {
 	tempUpdaterFileName := filepath.Join(baseFolder, "manager_in_action.exe")
 	err = gocp.Copy(filepath.Join(baseFolder ,"manager.exe"), tempUpdaterFileName)
 	if err != nil {
@@ -113,8 +122,8 @@ func performUpdate(updateFilePath string) (err error) {
 		}
 	}()
 
-	log.Info.Printf("Performing update: %s", updateFilePath)
-	cmd := exec.Command(tempUpdaterFileName, updateFilePath)
+	log.Info.Printf("Performing update: %s", arguments)
+	cmd := exec.Command(tempUpdaterFileName, arguments...)
 	//cmd.Stdout = os.Stdout
 	//cmd.Stderr = os.Stderr
 	err = cmd.Run()
@@ -122,7 +131,7 @@ func performUpdate(updateFilePath string) (err error) {
 		log.Error.Printf("Failed to execute %s! Error message: %s", tempUpdaterFileName, err)
 	}
 
-	log.Info.Printf("Successfully performed update: %s", updateFilePath)
+	log.Info.Printf("Successfully performed update: %s", arguments)
 	return nil
 }
 
@@ -271,7 +280,7 @@ func checkForUpdates(product string) {
 			return
 		}
 
-		err = performUpdate(updateFilePath)
+		err = performCommand("update", updateFilePath)
 		if err != nil {
 			log.Error.Printf("Failed to perform the %s update: %s", product, err)
 		}
@@ -279,4 +288,41 @@ func checkForUpdates(product string) {
 		log.Debug.Printf("Current version is %s. Latest available version: %s is not newer. No need to update.",
 			currentVersion.String(), latestVersion.Version.String())
 	}
+}
+
+func checkForCommand() error {
+	// Get the server address which stores the update files
+	updateServerAddress, err := obtainUpdateServerAddress()
+	if err != nil {
+		log.Error.Println("Failed to obtain update server address! Error message: ", err)
+		return err
+	}
+
+	// FIXME: tenant=default needs a real tenant in the future
+	resp, err := http.Get(updateServerAddress + "/commands/recent?tenant=default")
+	if err != nil {
+		log.Error.Printf("Error during querying recent command: ", err)
+		return err
+	}
+	log.Debug.Printf("Recent command response: %s", resp)
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		err = fmt.Errorf("Getting recent command failed! Server response: %s", resp)
+		log.Error.Println(err)
+		return err
+	}
+
+	// Decode the JSON in the response
+	var command Command
+	if err := json.NewDecoder(resp.Body).Decode(&command); err != nil {
+		log.Error.Printf("Error while deserializing command response body. Error message: %v", err)
+		return err
+	}
+
+	log.Info.Println("Recent command: ", command.String())
+
+	err = performCommand(command.Command)
+
+	return err
 }

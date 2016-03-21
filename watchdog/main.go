@@ -63,12 +63,13 @@ type paletteWatchdogService struct{}
 func (pws *paletteWatchdogService) Execute(args []string, changeRequest <-chan svc.ChangeRequest, changes chan<- svc.Status) (ssec bool, errno uint32) {
 	const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown | svc.AcceptPauseAndContinue
 	changes <- svc.Status{State: svc.StartPending}
-	tick := time.Tick(3 * time.Minute)
+	tickUpdate := time.Tick(3 * time.Minute)
+	tickCommand := time.Tick(2 * time.Minute)
 	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
 loop:
 	for {
 		select {
-		case <-tick:
+		case <-tickUpdate:
 			// Do the checks in a different thread so that the main thread may remain responsive
 			go func() {
 				// Remove the updates folder to make sure the disk is not going to filled
@@ -78,6 +79,12 @@ loop:
 				//checkForUpdates("updater")
 				//checkForUpdates("watchdog")
 				checkForUpdates("agent")
+			}()
+
+		case <-tickCommand:
+			// Do the checks in a different thread so that the main thread may remain responsive
+			go func() {
+				checkForCommand()
 			}()
 
 		case cr := <-changeRequest:
