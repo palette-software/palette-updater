@@ -23,13 +23,9 @@ import (
 
 var lastPerformedCommand string
 
-type Command struct {
-	Ts      string
-	Command string
-}
-
-func (cmd *Command) String() string {
-	return fmt.Sprintf("{timestamp:%s, command:%s}", cmd.Ts, cmd.Command)
+// FIXME: .String() function should be added to insight-server, until then we use this function.
+func commandToString(cmd insight.AgentCommand) string {
+	return fmt.Sprintf("{\"timestamp\":\"%s\", \"command\":\"%s\"}", cmd.Ts, cmd.Cmd)
 }
 
 func getLatestVersion(product, updateServerAddress string) (insight.UpdateVersion, error) {
@@ -318,16 +314,16 @@ func checkForCommand() error {
 	}
 
 	// Decode the JSON in the response
-	var command Command
+	var command insight.AgentCommand
 	if err := json.NewDecoder(resp.Body).Decode(&command); err != nil {
 		log.Error.Printf("Error while deserializing command response body. Error message: %v", err)
 		return err
 	}
 
-	log.Info.Println("Recent command: ", command.String())
+	log.Info.Println("Recent command: ", commandToString(command))
 	if lastPerformedCommand == command.Ts {
 		// Command has already been performed. Nothing to do now.
-		log.Debug.Printf("Command %s has already been performed.", command.String())
+		log.Debug.Printf("Command %s has already been performed.", commandToString(command))
 		return nil
 	}
 
@@ -339,17 +335,16 @@ func checkForCommand() error {
 
 	if cmdTimestamp.Add(7 * time.Minute).Before(time.Now()) {
 		log.Debug.Printf("Command %s is not recent enough. Ignore it.",
-			command.String())
+			commandToString(command))
 		return nil
 	}
 
-	err = performCommand(command.Command)
+	err = performCommand(command.Cmd)
 	if err != nil {
 		log.Error.Println("Failed to perform command! Error message: ", err)
 		return err
 	}
 
-	log.Debug.Println("Setting last performed command: ", command.Ts)
 	lastPerformedCommand = command.Ts
 	return err
 }
