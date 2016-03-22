@@ -44,7 +44,13 @@ import (
 	"golang.org/x/sys/windows/svc/debug"
 )
 
-const svcDisplayName = "Palette Watchdog"
+// Constants
+const svcName = "PaletteInsightWatchdog"
+const svcDisplayName = "Palette Insight Watchdog"
+const svcDescription = "Manager for Palette Insight Agent"
+
+const updateTimer = 3 * time.Minute
+const commandTimer = 2 * time.Minute
 
 // Prints usage information
 func usage(errormsg string) {
@@ -63,8 +69,8 @@ type paletteWatchdogService struct{}
 func (pws *paletteWatchdogService) Execute(args []string, changeRequest <-chan svc.ChangeRequest, changes chan<- svc.Status) (ssec bool, errno uint32) {
 	const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown | svc.AcceptPauseAndContinue
 	changes <- svc.Status{State: svc.StartPending}
-	tickUpdate := time.Tick(3 * time.Minute)
-	tickCommand := time.Tick(2 * time.Minute)
+	tickUpdate := time.Tick(updateTimer)
+	tickCommand := time.Tick(commandTimer)
 	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
 loop:
 	for {
@@ -125,10 +131,6 @@ func runService(name string, isDebug bool) {
 var logsFolder, updatesFolder, baseFolder string
 
 func main() {
-	const svcName = "PaletteInsightWatchdog"
-	const svcDisplayName = "Palette Insight Watchdog"
-	const svcDescription = "Manager for Palette Insight Agent"
-
 	// Do not use relative paths, otherwise our files will end up in Windows/System32
 	execFolder, errorToLogLater := osext.ExecutableFolder()
 	if errorToLogLater != nil {

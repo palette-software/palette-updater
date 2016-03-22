@@ -58,7 +58,7 @@ func createBatchFile(msiPath string, targetDir string) error {
 		return err
 	}
 	defer f.Close()
-	reinstallCommand := fmt.Sprintf("msiexec /i \"%s\" INSTALLFOLDER=\"%s\" /qn", msiPath, targetDir)
+	reinstallCommand := fmt.Sprintf("msiexec /i \"%s\" INSTALLFOLDER=\"%s\" /qnlv /log \"%s\\Logs\\installer.log\"", msiPath, targetDir, targetDir)
 	_, err = f.WriteString(reinstallCommand)
 	if err != nil {
 		return err
