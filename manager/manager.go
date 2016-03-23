@@ -3,14 +3,15 @@ package main
 import (
 	"errors"
 	"fmt"
-	wmi "github.com/StackExchange/wmi"
+	"github.com/StackExchange/wmi"
+	"github.com/kardianos/osext"
 	log "github.com/palette-software/insight-tester/common/logging"
+	"github.com/palette-software/palette-updater/common"
 	svcControl "github.com/palette-software/palette-updater/service_control"
 	servdis "github.com/palette-software/palette-updater/services-discovery"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"github.com/kardianos/osext"
 	"strings"
 )
 
@@ -190,6 +191,19 @@ func doUpdate(installerFile string, serviceControl svcControl.ServiceControl) er
 	log.Info.Println("Restarting services.")
 	err = serviceControl.Start(Agent)
 	// When we get error here we should try again....
+
+	// Anyway, we need to make sure that the Watchdog is running after the reinstall.
+	// These are going to be no-op commands if the watchdog is still running.
+	// The following commands are going to be our safety belt.
+	err = serviceControl.Install(common.WatchdogSvcName, common.WatchdogSvcDisplayName, common.WatchdogSvcDescription)
+	if err != nil {
+		log.Warning.Printf("Failed to install %s. Error message: %s", common.WatchdogSvcDisplayName, err)
+	}
+
+	err = serviceControl.Start(common.WatchdogSvcName)
+	if err != nil {
+		log.Warning.Printf("Failed to start %s. Error message: %s", common.WatchdogSvcDisplayName, err)
+	}
 
 	return err
 }
