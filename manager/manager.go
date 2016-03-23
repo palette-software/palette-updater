@@ -42,7 +42,9 @@ func checkUpdate(updateLocation string) error {
 func stopServices(serviceControl svcControl.ServiceControl) error {
 	return serviceControl.Stop(Agent)
 	// var dst []Win32_Service
-	// q := wmi.CreateQuery(&dst, "where Name like '%Palette%'")
+	//whereClause := "where Name like '%" + Agent + "%'"
+	//log.Debug.Println("Discovering service where: ", whereClause)
+	// q := wmi.CreateQuery(&dst, whereClause)
 	// log.Info.Println("Query: ", q)
 	// err := wmi.Query(q, &dst)
 	// for _, srv := range dst {
@@ -73,7 +75,9 @@ func deleteBatchFile() {
 
 func reinstallServices(msiPath string) error {
 	var dst []servdis.Win32_Service
-	q := wmi.CreateQuery(&dst, "where Name like '%Palette%'")
+	whereClause := "where Name like '%" + Agent + "%'"
+	log.Debug.Println("Discovering service where: ", whereClause)
+	q := wmi.CreateQuery(&dst, whereClause)
 	err := wmi.Query(q, &dst)
 	if err != nil {
 		return err
