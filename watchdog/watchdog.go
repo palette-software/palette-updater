@@ -16,6 +16,7 @@ import (
 
 	"crypto/md5"
 	gocp "github.com/cleversoap/go-cp"
+	"github.com/palette-software/palette-updater/common"
 	"gopkg.in/yaml.v2"
 	"path/filepath"
 	"time"
@@ -61,7 +62,7 @@ func getCurrentVersion(product string) (currentVersion insight.Version, err erro
 
 	switch product {
 	case "agent":
-		svcToLookUp = "PaletteInsightAgent"
+		svcToLookUp = common.AgentSvcName
 	default:
 		err = fmt.Errorf("Unexpected product! Failed to map %s to service name!", product)
 		log.Error.Println(err)

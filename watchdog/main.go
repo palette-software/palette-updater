@@ -37,6 +37,7 @@ import (
 	"time"
 
 	log "github.com/palette-software/insight-tester/common/logging"
+	"github.com/palette-software/palette-updater/common"
 	svcControl "github.com/palette-software/palette-updater/service_control"
 
 	"github.com/kardianos/osext"
@@ -44,11 +45,7 @@ import (
 	"golang.org/x/sys/windows/svc/debug"
 )
 
-// Constants
-const svcName = "PaletteInsightWatchdog"
-const svcDisplayName = "Palette Insight Watchdog"
-const svcDescription = "Manager for Palette Insight Agent"
-
+// Timer constants
 const updateTimer = 3 * time.Minute
 const commandTimer = 2 * time.Minute
 
@@ -101,7 +98,7 @@ loop:
 				time.Sleep(100 * time.Millisecond)
 				changes <- cr.CurrentStatus
 			case svc.Stop, svc.Shutdown:
-				log.Info.Printf("Stopping %s...", svcDisplayName)
+				log.Info.Printf("Stopping %s...", common.WatchdogSvcDisplayName)
 				break loop
 			default:
 				log.Error.Printf("unexpected control request #%d", cr)
@@ -164,7 +161,7 @@ func main() {
 	// Levels:  DEBUG,   INFO,    WARNING, ERROR,   FATAL
 	log.InitLog(logFile, logFile, logFile, logFile, logFile)
 
-	log.Info.Printf("Firing up %s... Command line %s", svcDisplayName, os.Args)
+	log.Info.Printf("Firing up %s... Command line %s", common.WatchdogSvcDisplayName, os.Args)
 
 	if errorToLogLater != nil {
 		log.Error.Println("Failed to retrieve executable folder, thus base dir is not set! Error message: ",
@@ -184,15 +181,15 @@ func main() {
 	switch cmd {
 	case "debug":
 		// FIXME: runService is not platform-independent
-		runService(svcName, true)
+		runService(common.WatchdogSvcName, true)
 	case "install":
-		err = serviceControl.Install(svcName, svcDisplayName, svcDescription)
+		err = serviceControl.Install(common.WatchdogSvcName, common.WatchdogSvcDisplayName, common.WatchdogSvcDescription)
 	case "remove":
-		err = serviceControl.Remove(svcName)
+		err = serviceControl.Remove(common.WatchdogSvcName)
 	case "start":
-		err = serviceControl.Start(svcName)
+		err = serviceControl.Start(common.WatchdogSvcName)
 	case "stop":
-		err = serviceControl.Stop(svcName)
+		err = serviceControl.Stop(common.WatchdogSvcName)
 	case "is":
 		// In this case there needs to be more command line arguments, such as "auto-started"
 		if len(os.Args) < 3 {
@@ -207,9 +204,9 @@ func main() {
 				}
 				if !isIntSess {
 					// FIXME: runService is not platform-independent
-					runService(svcName, false)
+					runService(common.WatchdogSvcName, false)
 				} else {
-					err = serviceControl.Start(svcName)
+					err = serviceControl.Start(common.WatchdogSvcName)
 				}
 			default:
 				log.Error.Println("Unexpected comamnd after \"is\": ", cmdSecond)
@@ -233,7 +230,7 @@ func main() {
 	}
 
 	if err != nil {
-		log.Fatalf("failed to %s %s: %v", cmd, svcName, err)
+		log.Fatalf("failed to %s %s: %v", cmd, common.WatchdogSvcName, err)
 		return
 	}
 
