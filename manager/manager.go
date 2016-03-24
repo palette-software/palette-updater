@@ -15,7 +15,6 @@ import (
 	"strings"
 )
 
-const Agent = "PaletteInsightAgent"
 const BatchFile = "reinstall.bat"
 
 // Returns whether the given file or directory exists or not
@@ -40,7 +39,7 @@ func checkUpdate(updateLocation string) error {
 }
 
 func stopServices(serviceControl svcControl.ServiceControl) error {
-	return serviceControl.Stop(Agent)
+	return serviceControl.Stop(common.AgentSvcName)
 	// var dst []Win32_Service
 	//whereClause := "where Name like '%" + Agent + "%'"
 	//log.Debug.Println("Discovering service where: ", whereClause)
@@ -69,40 +68,50 @@ func createBatchFile(msiPath string, targetDir string) error {
 	return nil
 }
 
-func deleteBatchFile() {
-	os.Remove(BatchFile)
-}
-
 func reinstallServices(msiPath string) error {
 	var dst []servdis.Win32_Service
-	whereClause := "where Name like '%" + Agent + "%'"
+	whereClause := "where Name like '%" + common.AgentSvcName + "%'"
 	log.Debug.Println("Discovering service where: ", whereClause)
 	q := wmi.CreateQuery(&dst, whereClause)
 	err := wmi.Query(q, &dst)
 	if err != nil {
 		return err
 	}
+
+	// Hopefully there will only be one target directory, but if get more for some reason, try them all.
 	var targetDir string = ""
 	for _, srv := range dst {
 		targetDir = filepath.Dir(servdis.StripPathName(srv.PathName))
+		log.Debug.Println("Found possible target dir: ", targetDir)
+
+		if targetDir == "" {
+			err = errors.New("Could not find installed agent.")
+			continue
+		}
+		err = createBatchFile(msiPath, targetDir)
+		if err != nil {
+			log.Warning.Printf("Failed to create batch file with target dir: %s. Error message: %s", targetDir, err)
+			continue
+		}
+		cmd := exec.Command(BatchFile)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		err = cmd.Run()
+		os.Remove(BatchFile)
+		if err != nil {
+			log.Warning.Printf("Failed to execute batch file with target dir: %s. Error message: %s", targetDir, err)
+			continue
+		}
+
+		// Successfully reinstalled services
+		break
 	}
-	if targetDir == "" {
-		return errors.New("Could not find installed agent.")
-	}
-	err = createBatchFile(msiPath, targetDir)
-	if err != nil {
-		return err
-	}
-	cmd := exec.Command(BatchFile)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err = cmd.Run()
-	deleteBatchFile()
+
 	return err
 }
 
 func startServices(serviceControl svcControl.ServiceControl) error {
-	return serviceControl.Start(Agent)
+	return serviceControl.Start(common.AgentSvcName)
 }
 
 func main() {
@@ -156,9 +165,9 @@ func main() {
 		installerFile := os.Args[2]
 		err = doUpdate(installerFile, serviceControl)
 	case "start":
-		err = serviceControl.Start(Agent)
+		err = serviceControl.Start(common.AgentSvcName)
 	case "stop":
-		err = serviceControl.Stop(Agent)
+		err = serviceControl.Stop(common.AgentSvcName)
 	default:
 		log.Error.Printf("Unexpected command to execute: %s!", command)
 		return
@@ -179,7 +188,7 @@ func doUpdate(installerFile string, serviceControl svcControl.ServiceControl) er
 	}
 
 	log.Info.Println("Stopping services.")
-	err = serviceControl.Stop(Agent)
+	err = serviceControl.Stop(common.AgentSvcName)
 	if err != nil {
 		// Should not stop here. Service needs to be started anyway from now on.
 		log.Warning.Printf("Could not stop service: %s", err)
@@ -193,7 +202,7 @@ func doUpdate(installerFile string, serviceControl svcControl.ServiceControl) er
 	}
 
 	log.Info.Println("Restarting services.")
-	err = serviceControl.Start(Agent)
+	err = serviceControl.Start(common.AgentSvcName)
 	// When we get error here we should try again....
 
 	// Anyway, we need to make sure that the Watchdog is running after the reinstall.

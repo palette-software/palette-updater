@@ -55,10 +55,10 @@ func installService(name, displayName, description string) error {
 		return fmt.Errorf("service %s already exists", name)
 	}
 	serviceConfig := mgr.Config{
-		DisplayName: displayName,
-		StartType: mgr.StartAutomatic,
+		DisplayName:  displayName,
+		StartType:    mgr.StartAutomatic,
 		ErrorControl: mgr.ErrorNormal,
-		Description: description,
+		Description:  description,
 	}
 	service, err = m.CreateService(name, exepath, serviceConfig, "is", "auto-started")
 	if err != nil {
