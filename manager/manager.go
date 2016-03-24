@@ -208,14 +208,18 @@ func doUpdate(installerFile string, serviceControl svcControl.ServiceControl) er
 	// Anyway, we need to make sure that the Watchdog is running after the reinstall.
 	// These are going to be no-op commands if the watchdog is still running.
 	// The following commands are going to be our safety belt.
-	err = serviceControl.Install(common.WatchdogSvcName, common.WatchdogSvcDisplayName, common.WatchdogSvcDescription)
-	if err != nil {
-		log.Warning.Printf("Failed to install %s. Error message: %s", common.WatchdogSvcDisplayName, err)
+	errWatchdog := serviceControl.Install(common.WatchdogSvcName, common.WatchdogSvcDisplayName, common.WatchdogSvcDescription)
+	if errWatchdog != nil {
+		if !strings.Contains(errWatchdog.Error(), "already exists") {
+			log.Warning.Printf("Failed to install %s. Error message: %s", common.WatchdogSvcDisplayName, err)
+		}
 	}
 
-	err = serviceControl.Start(common.WatchdogSvcName)
-	if err != nil {
-		log.Warning.Printf("Failed to start %s. Error message: %s", common.WatchdogSvcDisplayName, err)
+	errWatchdog = serviceControl.Start(common.WatchdogSvcName)
+	if errWatchdog != nil {
+		if !strings.Contains(errWatchdog.Error(), "already running") {
+			log.Warning.Printf("Failed to start %s. Error message: %s", common.WatchdogSvcDisplayName, err)
+		}
 	}
 
 	return err
