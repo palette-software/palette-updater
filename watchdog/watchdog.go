@@ -22,7 +22,7 @@ import (
 	"time"
 )
 
-var lastPerformedCommand string
+var lastPerformedCommand insight.AgentCommand
 
 // FIXME: .String() function should be added to insight-server, until then we use this function.
 func commandToString(cmd insight.AgentCommand) string {
@@ -116,6 +116,7 @@ func performCommand(arguments ...string) (err error) {
 		return err
 	}
 	defer func() {
+		log.Debug.Println("Deleting ", tempUpdaterFileName)
 		err = os.Remove(tempUpdaterFileName)
 		if err != nil {
 			log.Error.Printf("Failed to delete %s! Error message: %s", tempUpdaterFileName, err)
@@ -322,7 +323,7 @@ func checkForCommand() error {
 	}
 
 	log.Info.Println("Recent command: ", commandToString(command))
-	if lastPerformedCommand == command.Ts {
+	if lastPerformedCommand == command {
 		// Command has already been performed. Nothing to do now.
 		log.Debug.Printf("Command %s has already been performed.", commandToString(command))
 		return nil
@@ -346,6 +347,6 @@ func checkForCommand() error {
 		return err
 	}
 
-	lastPerformedCommand = command.Ts
+	lastPerformedCommand = command
 	return err
 }

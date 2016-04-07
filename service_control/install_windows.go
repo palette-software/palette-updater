@@ -11,6 +11,7 @@ import (
 
 	//"golang.org/x/sys/windows/svc/eventlog"
 	"golang.org/x/sys/windows/svc/mgr"
+	"golang.org/x/sys/windows/svc"
 )
 
 func exePath() (string, error) {
@@ -93,4 +94,18 @@ func removeService(name string) error {
 	//	return fmt.Errorf("RemoveEventLogSource() failed: %s", err)
 	//}
 	return nil
+}
+
+func queryService(name string) (svc.Status, error) {
+	m, err := mgr.Connect()
+	if err != nil {
+		return svc.Status{}, err
+	}
+	defer m.Disconnect()
+	s, err := m.OpenService(name)
+	if err != nil {
+		return svc.Status{}, fmt.Errorf("service %s is not installed", name)
+	}
+	defer s.Close()
+	return s.Query()
 }
