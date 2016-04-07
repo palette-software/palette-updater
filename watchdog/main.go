@@ -48,7 +48,7 @@ import (
 // Timer constants
 const updateTimer = 3 * time.Minute
 const commandTimer = 2 * time.Minute
-const aliveTimer = 2 * time.Minute
+const aliveTimer = 5 * time.Minute
 
 // Prints usage information
 func usage(errormsg string) {
@@ -93,24 +93,26 @@ loop:
 			}()
 
 		case <-tickAlive:
-			if lastPerformedCommand.Cmd == "stop" {
-				log.Debug.Println("Skipped alive check for %s, since it is commanded to be stopped.", common.AgentSvcName)
-				break
-			}
-			var serviceControl svcControl.ServiceControl
-			svcStatus, err := serviceControl.Query(common.AgentSvcName)
-			if err != nil {
-				log.Error.Printf("Failed to query status of servics: %s! Error message: %v", common.AgentSvcName, err)
-				break
-			}
+			go func () {
+				if lastPerformedCommand.Cmd == "stop" {
+					log.Debug.Println("Skipped alive check for %s, since it is commanded to be stopped.", common.AgentSvcName)
+					return
+				}
+				var serviceControl svcControl.ServiceControl
+				svcStatus, err := serviceControl.Query(common.AgentSvcName)
+				if err != nil {
+					log.Error.Printf("Failed to query status of servics: %s! Error message: %v", common.AgentSvcName, err)
+					return
+				}
 
-			// Restart the agent service if it is not running and it is not commanded to stop
-			if svcStatus.State == svc.Stopped {
-				serviceControl.Start(common.AgentSvcName)
-				log.Info.Printf("Watchdog found %s started in stopped state. Restarted it.", common.AgentSvcName)
-			} else {
-				log.Info.Printf("%s is still alive. (Service state: %d)", common.AgentSvcName, svcStatus.State)
-			}
+				// Restart the agent service if it is not running and it is not commanded to stop
+				if svcStatus.State == svc.Stopped {
+					serviceControl.Start(common.AgentSvcName)
+					log.Info.Printf("Watchdog found %s in stopped state. Restarted it.", common.AgentSvcName)
+				} else {
+					log.Info.Printf("%s is still alive. (Service state: %d)", common.AgentSvcName, svcStatus.State)
+				}
+			}()
 
 		case cr := <-changeRequest:
 			switch cr.Cmd {
