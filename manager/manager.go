@@ -110,10 +110,6 @@ func reinstallServices(msiPath string) error {
 	return err
 }
 
-func startServices(serviceControl svcControl.ServiceControl) error {
-	return serviceControl.Start(common.AgentSvcName)
-}
-
 func main() {
 	// Do not use relative paths, otherwise our files will end up in Windows/System32
 	execFolder, errorToLogLater := osext.ExecutableFolder()

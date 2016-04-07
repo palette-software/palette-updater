@@ -34,6 +34,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	log "github.com/palette-software/insight-tester/common/logging"
@@ -49,6 +50,11 @@ import (
 const updateTimer = 3 * time.Minute
 const commandTimer = 2 * time.Minute
 const aliveTimer = 5 * time.Minute
+
+// This mutex prevents starting the agent service during agent update, because the service
+// needs to be in a stopped state while uninstalling the agent service, otherwise a system
+// reboot might be required, which is really not desired.
+var agentSvcMutex sync.Mutex
 
 // Prints usage information
 func usage(errormsg string) {
@@ -95,7 +101,7 @@ loop:
 		case <-tickAlive:
 			go func () {
 				if lastPerformedCommand.Cmd == "stop" {
-					log.Debug.Println("Skipped alive check for %s, since it is commanded to be stopped.", common.AgentSvcName)
+					log.Debug.Printf("Skipped alive check for %s, since it is commanded to be stopped.", common.AgentSvcName)
 					return
 				}
 				var serviceControl svcControl.ServiceControl
@@ -107,7 +113,9 @@ loop:
 
 				// Restart the agent service if it is not running and it is not commanded to stop
 				if svcStatus.State == svc.Stopped {
+					agentSvcMutex.Lock()
 					serviceControl.Start(common.AgentSvcName)
+					agentSvcMutex.Unlock()
 					log.Info.Printf("Watchdog found %s in stopped state. Restarted it.", common.AgentSvcName)
 				} else {
 					log.Info.Printf("%s is still alive. (Service state: %d)", common.AgentSvcName, svcStatus.State)

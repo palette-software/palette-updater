@@ -125,8 +125,8 @@ func performCommand(arguments ...string) (err error) {
 
 	log.Info.Printf("Performing command: %s", arguments)
 	cmd := exec.Command(tempUpdaterFileName, arguments...)
-	//cmd.Stdout = os.Stdout
-	//cmd.Stderr = os.Stderr
+	agentSvcMutex.Lock()
+	defer agentSvcMutex.Unlock()
 	err = cmd.Run()
 	if err != nil {
 		log.Error.Printf("Failed to execute %s! Error message: %s", tempUpdaterFileName, err)
