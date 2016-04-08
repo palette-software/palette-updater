@@ -98,7 +98,7 @@ loop:
 		case <-tickCommand:
 			// Do the checks in a different thread so that the main thread may remain responsive
 			go func() {
-				checkForCommand()
+				pws.checkForCommand()
 			}()
 
 		case <-tickAlive:
