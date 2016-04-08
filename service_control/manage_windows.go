@@ -58,3 +58,17 @@ func controlService(name string, c svc.Cmd, to svc.State) error {
 	}
 	return nil
 }
+
+func queryService(name string) (svc.Status, error) {
+	m, err := mgr.Connect()
+	if err != nil {
+		return svc.Status{}, err
+	}
+	defer m.Disconnect()
+	s, err := m.OpenService(name)
+	if err != nil {
+		return svc.Status{}, fmt.Errorf("service %s is not installed", name)
+	}
+	defer s.Close()
+	return s.Query()
+}
