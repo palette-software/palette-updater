@@ -37,6 +37,7 @@ import (
 	"sync"
 	"time"
 
+	insight "github.com/palette-software/insight-server"
 	log "github.com/palette-software/insight-tester/common/logging"
 	"github.com/palette-software/palette-updater/common"
 	svcControl "github.com/palette-software/palette-updater/service_control"
@@ -68,7 +69,9 @@ func usage(errormsg string) {
 }
 
 // Defining the watchdog service
-type paletteWatchdogService struct{}
+type paletteWatchdogService struct{
+	lastPerformedCommand insight.AgentCommand
+}
 
 func (pws *paletteWatchdogService) Execute(args []string, changeRequest <-chan svc.ChangeRequest, changes chan<- svc.Status) (ssec bool, errno uint32) {
 	const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown | svc.AcceptPauseAndContinue
@@ -100,14 +103,14 @@ loop:
 
 		case <-tickAlive:
 			go func () {
-				if lastPerformedCommand.Cmd == "stop" {
+				if pws.lastPerformedCommand.Cmd == "stop" {
 					log.Debug.Printf("Skipped alive check for %s, since it is commanded to be stopped.", common.AgentSvcName)
 					return
 				}
 				var serviceControl svcControl.ServiceControl
 				svcStatus, err := serviceControl.Query(common.AgentSvcName)
 				if err != nil {
-					log.Error.Printf("Failed to query status of servics: %s! Error message: %v", common.AgentSvcName, err)
+					log.Error.Printf("Failed to query status of service: %s! Error message: %v", common.AgentSvcName, err)
 					return
 				}
 
