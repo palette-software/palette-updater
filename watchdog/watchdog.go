@@ -170,21 +170,14 @@ func parseConfig() (Config, error) {
 		return config, err
 	}
 
-	// Open agent's .yml config file
-	input, err := os.Open(configFilePath)
-	if err != nil {
-		log.Error.Println("Error opening file: ", err)
-		return config, err
-	}
-	defer input.Close()
-	b, err := ioutil.ReadAll(input)
+	configBytes, err := ioutil.ReadFile(configFilePath)
 	if err != nil {
 		log.Error.Println("Error reading file: ", err)
 		return config, err
 	}
 
 	// Parse the .yml config file
-	err = yaml.Unmarshal(b, &config)
+	err = yaml.Unmarshal(configBytes, &config)
 	if err != nil {
 		log.Error.Println("Error parsing yaml: ", err)
 		return config, err
