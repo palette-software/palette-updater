@@ -1,25 +1,26 @@
 package main
 
 import (
+	"crypto/md5"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	insight "github.com/palette-software/insight-server"
 	log "github.com/palette-software/insight-tester/common/logging"
+	"github.com/palette-software/palette-updater/common"
 	servdis "github.com/palette-software/palette-updater/services-discovery"
 
-	"crypto/md5"
 	gocp "github.com/cleversoap/go-cp"
-	"github.com/palette-software/palette-updater/common"
 	"gopkg.in/yaml.v2"
-	"path/filepath"
-	"time"
 )
 
 var lastPerformedCommand string
@@ -137,41 +138,72 @@ func performCommand(arguments ...string) (err error) {
 }
 
 type Webservice struct {
-	Endpoint string `yaml:"Endpoint"`
+	Endpoint     string `yaml:"Endpoint"`
+	UseProxy     bool   `yaml:"UseProxy"`
+	ProxyAddress string `yaml:"ProxyAddress"`
 }
 
 type Config struct {
 	Webservice Webservice `yaml:"Webservice"`
 }
 
-func obtainUpdateServerAddress() (string, error) {
-	configFilePath, err := findAgentConfigFile()
+func setupUpdateServer() (string, error) {
+	config, err := parseConfig()
 	if err != nil {
 		return "", err
 	}
 
+	// Do the proxy setup, if necessary
+	err = setupProxy(config)
+	if err != nil {
+		return "", err
+	}
+
+	return config.Webservice.Endpoint, nil
+}
+
+func parseConfig() (Config, error) {
 	var config Config
 
-	// Open agent's .yml config file
-	input, err := os.Open(configFilePath)
+	configFilePath, err := findAgentConfigFile()
 	if err != nil {
-		log.Error.Println("Error opening file: ", err)
-		return "", err
+		return config, err
 	}
-	defer input.Close()
-	b, err := ioutil.ReadAll(input)
+
+	configBytes, err := ioutil.ReadFile(configFilePath)
 	if err != nil {
 		log.Error.Println("Error reading file: ", err)
-		return "", err
+		return config, err
 	}
 
 	// Parse the .yml config file
-	err = yaml.Unmarshal(b, &config)
+	err = yaml.Unmarshal(configBytes, &config)
 	if err != nil {
-		log.Error.Println("Error parsing xml", err)
-		return "", err
+		log.Error.Println("Error parsing yaml: ", err)
+		return config, err
 	}
-	return config.Webservice.Endpoint, nil
+
+	return config, nil
+}
+
+func setupProxy(config Config) error {
+	// Set the proxy address, if there is any
+	if config.Webservice.UseProxy {
+		if len(config.Webservice.ProxyAddress) == 0 {
+			err := fmt.Errorf("Missing proxy address from config file!")
+			log.Error.Println(err)
+			return err
+		}
+		proxyUrl, err := url.Parse(config.Webservice.ProxyAddress)
+		if err != nil {
+			log.Error.Printf("Could not parse proxy settings: %s from Config.yml. Error message: %s", config.Webservice.ProxyAddress, err)
+			return err
+		}
+		http.DefaultTransport = &http.Transport{Proxy: http.ProxyURL(proxyUrl)}
+		log.Info.Println("Default Proxy URL is set to: ", proxyUrl)
+	}
+
+	return nil
 }
 
 // FIXME: locating the config file is not generic! This means this way is not going to be okay if we wanted to use this service as an auto-updater for the insight-server
@@ -250,9 +282,8 @@ func downloadVersion(updateServerAddress, product string, version insight.Update
 
 func checkForUpdates(product string) {
 	// Get the server address which stores the update files
-	updateServerAddress, err := obtainUpdateServerAddress()
+	updateServerAddress, err := setupUpdateServer()
 	if err != nil {
-		log.Error.Println("Failed to obtain update server address! Error message: ", err)
 		return
 	}
 
@@ -293,7 +324,7 @@ func checkForUpdates(product string) {
 
 func checkForCommand() error {
 	// Get the server address which stores the update files
-	updateServerAddress, err := obtainUpdateServerAddress()
+	updateServerAddress, err := setupUpdateServer()
 	if err != nil {
 		log.Error.Println("Failed to obtain update server address! Error message: ", err)
 		return err
