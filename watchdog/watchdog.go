@@ -21,6 +21,7 @@ import (
 
 	gocp "github.com/cleversoap/go-cp"
 	"gopkg.in/yaml.v2"
+	"crypto/tls"
 )
 
 var lastPerformedCommand string
@@ -199,7 +200,10 @@ func setupProxy(config Config) error {
 			log.Error.Printf("Could not parse proxy settings: %s from Config.yml. Error message: %s", config.Webservice.ProxyAddress, err)
 			return err
 		}
-		http.DefaultTransport = &http.Transport{Proxy: http.ProxyURL(proxyUrl)}
+		http.DefaultTransport = &http.Transport{
+			Proxy: http.ProxyURL(proxyUrl),
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
 		log.Info.Println("Default Proxy URL is set to: ", proxyUrl)
 	}
 
