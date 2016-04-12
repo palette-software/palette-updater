@@ -117,8 +117,8 @@ loop:
 				// Restart the agent service if it is not running and it is not commanded to stop
 				if svcStatus.State == svc.Stopped {
 					agentSvcMutex.Lock()
+					defer agentSvcMutex.Unlock()
 					serviceControl.Start(common.AgentSvcName)
-					agentSvcMutex.Unlock()
 					log.Info.Printf("Watchdog found %s in stopped state. Restarted it.", common.AgentSvcName)
 				} else {
 					log.Info.Printf("%s is still alive. (Service state: %d)", common.AgentSvcName, svcStatus.State)
