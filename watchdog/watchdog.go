@@ -24,8 +24,6 @@ import (
 	"crypto/tls"
 )
 
-var lastPerformedCommand string
-
 // FIXME: .String() function should be added to insight-server, until then we use this function.
 func commandToString(cmd insight.AgentCommand) string {
 	return fmt.Sprintf("{\"timestamp\":\"%s\", \"command\":\"%s\"}", cmd.Ts, cmd.Cmd)
@@ -118,6 +116,7 @@ func performCommand(arguments ...string) (err error) {
 		return err
 	}
 	defer func() {
+		log.Debug.Println("Deleting ", tempUpdaterFileName)
 		err = os.Remove(tempUpdaterFileName)
 		if err != nil {
 			log.Error.Printf("Failed to delete %s! Error message: %s", tempUpdaterFileName, err)
@@ -126,8 +125,8 @@ func performCommand(arguments ...string) (err error) {
 
 	log.Info.Printf("Performing command: %s", arguments)
 	cmd := exec.Command(tempUpdaterFileName, arguments...)
-	//cmd.Stdout = os.Stdout
-	//cmd.Stderr = os.Stderr
+	agentSvcMutex.Lock()
+	defer agentSvcMutex.Unlock()
 	err = cmd.Run()
 	if err != nil {
 		log.Error.Printf("Failed to execute %s! Error message: %s", tempUpdaterFileName, err)
@@ -326,7 +325,7 @@ func checkForUpdates(product string) {
 	}
 }
 
-func checkForCommand() error {
+func (pws *paletteWatchdogService) checkForCommand() error {
 	// Get the server address which stores the update files
 	updateServerAddress, err := setupUpdateServer()
 	if err != nil {
@@ -357,7 +356,7 @@ func checkForCommand() error {
 	}
 
 	log.Info.Println("Recent command: ", commandToString(command))
-	if lastPerformedCommand == command.Ts {
+	if pws.lastPerformedCommand == command {
 		// Command has already been performed. Nothing to do now.
 		log.Debug.Printf("Command %s has already been performed.", commandToString(command))
 		return nil
@@ -381,6 +380,6 @@ func checkForCommand() error {
 		return err
 	}
 
-	lastPerformedCommand = command.Ts
+	pws.lastPerformedCommand = command
 	return err
 }

@@ -34,8 +34,10 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
+	insight "github.com/palette-software/insight-server"
 	log "github.com/palette-software/insight-tester/common/logging"
 	"github.com/palette-software/palette-updater/common"
 	svcControl "github.com/palette-software/palette-updater/service_control"
@@ -48,6 +50,12 @@ import (
 // Timer constants
 const updateTimer = 3 * time.Minute
 const commandTimer = 2 * time.Minute
+const aliveTimer = 5 * time.Minute
+
+// This mutex prevents starting the agent service during agent update, because the service
+// needs to be in a stopped state while uninstalling the agent service, otherwise a system
+// reboot might be required, which is really not desired.
+var agentSvcMutex sync.Mutex
 
 // Prints usage information
 func usage(errormsg string) {
@@ -61,13 +69,16 @@ func usage(errormsg string) {
 }
 
 // Defining the watchdog service
-type paletteWatchdogService struct{}
+type paletteWatchdogService struct{
+	lastPerformedCommand insight.AgentCommand
+}
 
 func (pws *paletteWatchdogService) Execute(args []string, changeRequest <-chan svc.ChangeRequest, changes chan<- svc.Status) (ssec bool, errno uint32) {
 	const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown | svc.AcceptPauseAndContinue
 	changes <- svc.Status{State: svc.StartPending}
 	tickUpdate := time.Tick(updateTimer)
 	tickCommand := time.Tick(commandTimer)
+	tickAlive := time.Tick(aliveTimer)
 	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
 loop:
 	for {
@@ -87,7 +98,31 @@ loop:
 		case <-tickCommand:
 			// Do the checks in a different thread so that the main thread may remain responsive
 			go func() {
-				checkForCommand()
+				pws.checkForCommand()
+			}()
+
+		case <-tickAlive:
+			go func () {
+				if pws.lastPerformedCommand.Cmd == "stop" {
+					log.Debug.Printf("Skipped alive check for %s, since it is commanded to be stopped.", common.AgentSvcName)
+					return
+				}
+				var serviceControl svcControl.ServiceControl
+				svcStatus, err := serviceControl.Query(common.AgentSvcName)
+				if err != nil {
+					log.Error.Printf("Failed to query status of service: %s! Error message: %v", common.AgentSvcName, err)
+					return
+				}
+
+				// Restart the agent service if it is not running and it is not commanded to stop
+				if svcStatus.State == svc.Stopped {
+					agentSvcMutex.Lock()
+					defer agentSvcMutex.Unlock()
+					serviceControl.Start(common.AgentSvcName)
+					log.Info.Printf("Watchdog found %s in stopped state. Restarted it.", common.AgentSvcName)
+				} else {
+					log.Info.Printf("%s is still alive. (Service state: %d)", common.AgentSvcName, svcStatus.State)
+				}
 			}()
 
 		case cr := <-changeRequest:
