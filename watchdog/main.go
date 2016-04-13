@@ -69,7 +69,7 @@ func usage(errormsg string) {
 }
 
 // Defining the watchdog service
-type paletteWatchdogService struct{
+type paletteWatchdogService struct {
 	lastPerformedCommand insight.AgentCommand
 }
 
@@ -102,7 +102,7 @@ loop:
 			}()
 
 		case <-tickAlive:
-			go func () {
+			go func() {
 				if pws.lastPerformedCommand.Cmd == "stop" {
 					log.Debug.Printf("Skipped alive check for %s, since it is commanded to be stopped.", common.AgentSvcName)
 					return
