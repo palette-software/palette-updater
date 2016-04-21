@@ -192,9 +192,11 @@ func main() {
 		}
 	}()
 
+	splunkLogger := log.NewSplunkTarget("splunk-insight.palette-software.net", "55530416-A60A-4D13-9ADD-17DBDDB15AEC")
+
 	// Set the levels to be ignored to ioutil.Discard
-	// Levels:  DEBUG,   INFO,    WARNING, ERROR,   FATAL
-	log.InitLog(logFile, logFile, logFile, logFile, logFile)
+	// Levels:  DEBUG,        INFO,         WARNING,      ERROR,        FATAL
+	log.InitLog(splunkLogger, splunkLogger, splunkLogger, splunkLogger, splunkLogger)
 
 	log.Info.Printf("Firing up %s... Command line %s", common.WatchdogSvcDisplayName, os.Args)
 
