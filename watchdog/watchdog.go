@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -10,7 +11,6 @@ import (
 
 	log "github.com/palette-software/insight-tester/common/logging"
 	"gopkg.in/yaml.v2"
-	"crypto/tls"
 )
 
 type Webservice struct {
@@ -76,7 +76,7 @@ func setupProxy(config Config) error {
 			return err
 		}
 		http.DefaultTransport = &http.Transport{
-			Proxy: http.ProxyURL(proxyUrl),
+			Proxy:           http.ProxyURL(proxyUrl),
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}
 		log.Info.Println("Default Proxy URL is set to: ", proxyUrl)

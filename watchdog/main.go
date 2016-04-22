@@ -191,7 +191,7 @@ func main() {
 	//		panic(err)
 	//	}
 	//}()
-	var err error = nil	// Remove this definition if the file logger code above is activated again
+	var err error = nil // Remove this definition if the file logger code above is activated again
 
 	splunkLogger := log.NewSplunkTarget("splunk-insight.palette-software.net", "55530416-A60A-4D13-9ADD-17DBDDB15AEC")
 

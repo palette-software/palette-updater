@@ -3,17 +3,19 @@ package main
 import (
 	"errors"
 	"fmt"
-	"github.com/StackExchange/wmi"
-	"github.com/kardianos/osext"
-	log "github.com/palette-software/insight-tester/common/logging"
-	"github.com/palette-software/palette-updater/common"
-	svcControl "github.com/palette-software/palette-updater/service_control"
-	servdis "github.com/palette-software/palette-updater/services-discovery"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
+
+	log "github.com/palette-software/insight-tester/common/logging"
+	"github.com/palette-software/palette-updater/common"
+	svcControl "github.com/palette-software/palette-updater/service_control"
+	servdis "github.com/palette-software/palette-updater/services-discovery"
+
+	"github.com/StackExchange/wmi"
 )
 
 const BatchFile = "reinstall.bat"
@@ -55,13 +57,13 @@ func stopServices(serviceControl svcControl.ServiceControl) error {
 	// return err
 }
 
-func createBatchFile(msiPath string, targetDir string) error {
+func createBatchFile(msiPath string, targetDir, installerLogFile string) error {
 	f, err := os.Create(BatchFile)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-	reinstallCommand := fmt.Sprintf("msiexec /i \"%s\" INSTALLFOLDER=\"%s\" /qnlv /log \"%s\\Logs\\installer.log\"", msiPath, targetDir, targetDir)
+	reinstallCommand := fmt.Sprintf("msiexec /i \"%s\" INSTALLFOLDER=\"%s\" /qnlv /log \"%s\"", msiPath, targetDir, installerLogFile)
 	_, err = f.WriteString(reinstallCommand)
 	if err != nil {
 		return err
@@ -89,7 +91,8 @@ func reinstallServices(msiPath string) error {
 			err = errors.New("Could not find installed agent.")
 			continue
 		}
-		err = createBatchFile(msiPath, targetDir)
+		installerLogFile := fmt.Sprintf("%s\\Logs\\installer.log", targetDir)
+		err = createBatchFile(msiPath, targetDir, installerLogFile)
 		if err != nil {
 			log.Warning.Printf("Failed to create batch file with target dir: %s. Error message: %s", targetDir, err)
 			continue
@@ -99,6 +102,13 @@ func reinstallServices(msiPath string) error {
 		cmd.Stderr = os.Stderr
 		err = cmd.Run()
 		os.Remove(BatchFile)
+		// Have the contents of the installer log in the common log
+		installerResult, logErr := ioutil.ReadFile(installerLogFile)
+		if logErr != nil {
+			log.Error.Printf("Failed to read installer log file: %s", installerLogFile)
+		} else {
+			log.Info.Printf("Contents of the installer.log file:\n%s", installerResult)
+		}
 		if err != nil {
 			log.Warning.Printf("Failed to execute batch file with target dir: %s. Error message: %s", targetDir, err)
 			continue
@@ -112,12 +122,12 @@ func reinstallServices(msiPath string) error {
 }
 
 func main() {
-	// Do not use relative paths, otherwise our files will end up in Windows/System32
-	execFolder, errorToLogLater := osext.ExecutableFolder()
-	if errorToLogLater != nil {
-		execFolder = ""
-	}
-
+	//// Do not use relative paths, otherwise our files will end up in Windows/System32
+	//execFolder, errorToLogLater := osext.ExecutableFolder()
+	//if errorToLogLater != nil {
+	//	execFolder = ""
+	//}
+	//
 	//// Initialize the log to write into file instead of stderr
 	//// open output file
 	//logsFolder := filepath.Join(execFolder, "Logs")
@@ -136,7 +146,7 @@ func main() {
 	//		panic(err)
 	//	}
 	//}()
-	var err error = nil	// Remove this definition if the file logger code above is activated again
+	var err error = nil // Remove this definition if the file logger code above is activated again
 
 	splunkLogger := log.NewSplunkTarget("splunk-insight.palette-software.net", "55530416-A60A-4D13-9ADD-17DBDDB15AEC")
 	// FIXME: Wait 3 seconds, so that Splunk logger has some time to upload the logs
