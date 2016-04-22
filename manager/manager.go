@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 const BatchFile = "reinstall.bat"
@@ -117,28 +118,33 @@ func main() {
 		execFolder = ""
 	}
 
-	// Initialize the log to write into file instead of stderr
-	// open output file
-	logsFolder := filepath.Join(execFolder, "Logs")
-	os.Mkdir(logsFolder, 777)
-	logFileName := filepath.Join(logsFolder, "manager.log")
-	logFile, err := os.OpenFile(logFileName, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
-	if err != nil {
-		fmt.Println("Failed to open log file! ", err)
-		panic(err)
-	}
+	//// Initialize the log to write into file instead of stderr
+	//// open output file
+	//logsFolder := filepath.Join(execFolder, "Logs")
+	//os.Mkdir(logsFolder, 777)
+	//logFileName := filepath.Join(logsFolder, "manager.log")
+	//logFile, err := os.OpenFile(logFileName, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	//if err != nil {
+	//	fmt.Println("Failed to open log file! ", err)
+	//	panic(err)
+	//}
+	//
+	//// close file on exit and check for its returned error
+	//defer func() {
+	//	if err := logFile.Close(); err != nil {
+	//		fmt.Println("Failed to close log file! ", err)
+	//		panic(err)
+	//	}
+	//}()
+	var err error = nil	// Remove this definition if the file logger code above is activated again
 
-	// close file on exit and check for its returned error
-	defer func() {
-		if err := logFile.Close(); err != nil {
-			fmt.Println("Failed to close log file! ", err)
-			panic(err)
-		}
-	}()
+	splunkLogger := log.NewSplunkTarget("splunk-insight.palette-software.net", "55530416-A60A-4D13-9ADD-17DBDDB15AEC")
+	// FIXME: Wait 3 seconds, so that Splunk logger has some time to upload the logs
+	defer time.Sleep(3 * time.Second)
 
 	// Set the levels to be ignored to ioutil.Discard
-	// Levels:  DEBUG,   INFO,    WARNING, ERROR,   FATAL
-	log.InitLog(logFile, logFile, logFile, logFile, logFile)
+	// Levels:  DEBUG,        INFO,         WARNING,      ERROR,        FATAL
+	log.InitLog(splunkLogger, splunkLogger, splunkLogger, splunkLogger, splunkLogger)
 
 	log.Info.Printf("Firing up manager... Command line %s", os.Args)
 

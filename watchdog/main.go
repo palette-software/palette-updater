@@ -48,9 +48,9 @@ import (
 )
 
 // Timer constants
-const updateTimer = 3 * time.Minute
-const commandTimer = 2 * time.Minute
-const aliveTimer = 5 * time.Minute
+const updateTimer = 13 * time.Second
+const commandTimer = 12 * time.Second
+const aliveTimer = 15 * time.Second
 
 // This mutex prevents starting the agent service during agent update, because the service
 // needs to be in a stopped state while uninstalling the agent service, otherwise a system
@@ -119,7 +119,7 @@ loop:
 					agentSvcMutex.Lock()
 					defer agentSvcMutex.Unlock()
 					serviceControl.Start(common.AgentSvcName)
-					log.Info.Printf("Watchdog found %s in stopped state. Restarted it.", common.AgentSvcName)
+					log.Warning.Printf("Watchdog found %s in stopped state. Restarted it.", common.AgentSvcName)
 				} else {
 					log.Info.Printf("%s is still alive. (Service state: %d)", common.AgentSvcName, svcStatus.State)
 				}
@@ -174,23 +174,24 @@ func main() {
 	logsFolder = baseFolder + "/Logs"
 	updatesFolder = baseFolder + "/Updates"
 
-	// Initialize the log to write into file instead of stderr
-	// open output file
-	os.Mkdir(logsFolder, 777)
-	logFileName := logsFolder + "/watchdog.log"
-	logFile, err := os.OpenFile(logFileName, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
-	if err != nil {
-		fmt.Println("Failed to open log file! ", err)
-		panic(err)
-	}
-
-	// close file on exit and check for its returned error
-	defer func() {
-		if err := logFile.Close(); err != nil {
-			fmt.Println("Failed to close log file! ", err)
-			panic(err)
-		}
-	}()
+	//// Initialize the log to write into file instead of stderr
+	//// open output file
+	//os.Mkdir(logsFolder, 777)
+	//logFileName := logsFolder + "/watchdog.log"
+	//logFile, err := os.OpenFile(logFileName, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	//if err != nil {
+	//	fmt.Println("Failed to open log file! ", err)
+	//	panic(err)
+	//}
+	//
+	//// close file on exit and check for its returned error
+	//defer func() {
+	//	if err := logFile.Close(); err != nil {
+	//		fmt.Println("Failed to close log file! ", err)
+	//		panic(err)
+	//	}
+	//}()
+	var err error = nil	// Remove this definition if the file logger code above is activated again
 
 	splunkLogger := log.NewSplunkTarget("splunk-insight.palette-software.net", "55530416-A60A-4D13-9ADD-17DBDDB15AEC")
 
@@ -259,6 +260,10 @@ func main() {
 		//checkForUpdates("updater")
 		//checkForUpdates("watchdog")
 		checkForUpdates("agent")
+
+	case "license":
+		_ = log.NewSplunkTarget("splunk-insight.palette-software.net", "55530416-A60A-4D13-9ADD-17DBDDB15AEC")
+		return
 	// FIXME: End of debugging
 
 	default:
@@ -272,5 +277,6 @@ func main() {
 	}
 
 	log.Info.Printf("Command %s execution finished.", os.Args)
+	time.Sleep(2 * time.Second)
 	return
 }
