@@ -48,14 +48,14 @@ func parseConfig() (Config, error) {
 
 	configBytes, err := ioutil.ReadFile(configFilePath)
 	if err != nil {
-		log.Error.Println("Error reading file: ", err)
+		log.Error("Error reading file: ", err)
 		return config, err
 	}
 
 	// Parse the .yml config file
 	err = yaml.Unmarshal(configBytes, &config)
 	if err != nil {
-		log.Error.Println("Error parsing yaml: ", err)
+		log.Error("Error parsing yaml: ", err)
 		return config, err
 	}
 
@@ -67,19 +67,19 @@ func setupProxy(config Config) error {
 	if config.Webservice.UseProxy {
 		if len(config.Webservice.ProxyAddress) == 0 {
 			err := fmt.Errorf("Missing proxy address from config file!")
-			log.Error.Println(err)
+			log.Error(err)
 			return err
 		}
 		proxyUrl, err := url.Parse(config.Webservice.ProxyAddress)
 		if err != nil {
-			log.Error.Printf("Could not parse proxy settings: %s from Config.yml. Error message: %s", config.Webservice.ProxyAddress, err)
+			log.Errorf("Could not parse proxy settings: %s from Config.yml. Error message: %s", config.Webservice.ProxyAddress, err)
 			return err
 		}
 		http.DefaultTransport = &http.Transport{
 			Proxy:           http.ProxyURL(proxyUrl),
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}
-		log.Info.Println("Default Proxy URL is set to: ", proxyUrl)
+		log.Info("Default Proxy URL is set to: ", proxyUrl)
 	}
 
 	return nil
@@ -92,7 +92,7 @@ func findAgentConfigFile() (string, error) {
 	configPath := filepath.Join(baseFolder, "Config", "Config.yml")
 
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		log.Error.Println("Agent config file does not exist! Error message: ", err)
+		log.Error("Agent config file does not exist! Error message: ", err)
 		return "", err
 	}
 
