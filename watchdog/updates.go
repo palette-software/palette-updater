@@ -155,15 +155,9 @@ func downloadVersion(updateServerAddress, product string, version insight.Update
 	return filePath, nil
 }
 
-func checkForUpdates(product string) {
-	// Get the server address which stores the update files
-	updateServerAddress, err := setupUpdateServer()
-	if err != nil {
-		return
-	}
-
+func checkForUpdates(product, insightServerAddress string) {
 	// Check the latest version available on the server
-	latestVersion, err := getLatestVersion(product, updateServerAddress)
+	latestVersion, err := getLatestVersion(product, insightServerAddress)
 	if err != nil {
 		log.Errorf("Failed to retrieve latest %s version. Error message: %s", product, err)
 		return
@@ -182,7 +176,7 @@ func checkForUpdates(product string) {
 			product, latestVersion.String(), currentVersion.String())
 
 		// Download the latest version
-		updateFilePath, err := downloadVersion(updateServerAddress, product, latestVersion)
+		updateFilePath, err := downloadVersion(insightServerAddress, product, latestVersion)
 		if err != nil {
 			return
 		}

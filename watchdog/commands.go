@@ -49,16 +49,9 @@ func performCommand(arguments ...string) (err error) {
 	return nil
 }
 
-func (pws *paletteWatchdogService) checkForCommand() error {
-	// Get the server address which stores the update files
-	updateServerAddress, err := setupUpdateServer()
-	if err != nil {
-		log.Error("Failed to obtain update server address! Error message: ", err)
-		return err
-	}
-
+func (pws *paletteWatchdogService) checkForCommand(insightServerAddress string) error {
 	// FIXME: tenant=default needs a real tenant in the future
-	resp, err := http.Get(updateServerAddress + "/commands/recent?tenant=default")
+	resp, err := http.Get(insightServerAddress + "/commands/recent?tenant=default")
 	if err != nil {
 		log.Errorf("Error during querying recent command: ", err)
 		return err

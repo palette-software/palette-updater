@@ -1,101 +1,120 @@
 package main
 
 import (
-	"crypto/tls"
-	"fmt"
-	"io/ioutil"
-	"net/http"
-	"net/url"
 	"os"
-	"path/filepath"
+	"time"
 
 	log "github.com/palette-software/insight-tester/common/logging"
-	"gopkg.in/yaml.v2"
+	"github.com/palette-software/palette-updater/common"
+	insight "github.com/palette-software/insight-server"
+	svcControl "github.com/palette-software/palette-updater/service_control"
+
+	"golang.org/x/sys/windows/svc"
+	"golang.org/x/sys/windows/svc/debug"
 )
 
-type Webservice struct {
-	Endpoint     string `yaml:"Endpoint"`
-	UseProxy     bool   `yaml:"UseProxy"`
-	ProxyAddress string `yaml:"ProxyAddress"`
+// Timer constants
+const updateTimer = 3 * time.Minute
+const commandTimer = 2 * time.Minute
+const aliveTimer = 5 * time.Minute
+
+// Defining the watchdog service
+type paletteWatchdogService struct {
+	lastPerformedCommand insight.AgentCommand
 }
 
-type Config struct {
-	Webservice Webservice `yaml:"Webservice"`
-}
+func (pws *paletteWatchdogService) Execute(args []string, changeRequest <-chan svc.ChangeRequest, changes chan<- svc.Status) (ssec bool, errno uint32) {
+	const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown | svc.AcceptPauseAndContinue
+	changes <- svc.Status{State: svc.StartPending}
+	tickUpdate := time.Tick(updateTimer)
+	tickCommand := time.Tick(commandTimer)
+	tickAlive := time.Tick(aliveTimer)
+	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
+	loop:
+	for {
+		select {
+		case <-tickUpdate:
+		// Do the checks in a different thread so that the main thread may remain responsive
+			go func() {
+				// Remove the updates folder to make sure the disk is not going to filled
+				// with orphaned update files
+				os.RemoveAll(updatesFolder)
 
-func setupUpdateServer() (string, error) {
-	config, err := parseConfig()
-	if err != nil {
-		return "", err
-	}
+				insightServerAddress, err := common.ObtainInsightServerAddress(baseFolder)
+				if err != nil {
+					log.Error("Failed to obtain Insight Server address while checking for updates! Error:", err)
+				}
 
-	// Do the proxy setup, if necessary
-	err = setupProxy(config)
-	if err != nil {
-		return "", err
-	}
+				//checkForUpdates("updater")
+				//checkForUpdates("watchdog")
+				checkForUpdates("agent", insightServerAddress)
+			}()
 
-	return config.Webservice.Endpoint, nil
-}
+		case <-tickCommand:
+		// Do the checks in a different thread so that the main thread may remain responsive
+			go func() {
+				insightServerAddress, err := common.ObtainInsightServerAddress(baseFolder)
+				if err != nil {
+					log.Error("Failed to obtain Insight Server address for checking commands! Error:", err)
+				}
+				pws.checkForCommand(insightServerAddress)
+			}()
 
-func parseConfig() (Config, error) {
-	var config Config
+		case <-tickAlive:
+			go func() {
+				if pws.lastPerformedCommand.Cmd == "stop" {
+					log.Debugf("Skipped alive check for %s, since it is commanded to be stopped.", common.AgentSvcName)
+					return
+				}
+				var serviceControl svcControl.ServiceControl
+				svcStatus, err := serviceControl.Query(common.AgentSvcName)
+				if err != nil {
+					log.Errorf("Failed to query status of service: %s! Error message: %v", common.AgentSvcName, err)
+					return
+				}
 
-	configFilePath, err := findAgentConfigFile()
-	if err != nil {
-		return config, err
-	}
+				// Restart the agent service if it is not running and it is not commanded to stop
+				if svcStatus.State == svc.Stopped {
+					agentSvcMutex.Lock()
+					defer agentSvcMutex.Unlock()
+					serviceControl.Start(common.AgentSvcName)
+					log.Warningf("Watchdog found %s in stopped state. Restarted it.", common.AgentSvcName)
+				} else {
+					log.Infof("%s is still alive. (Service state: %d)", common.AgentSvcName, svcStatus.State)
+				}
+			}()
 
-	configBytes, err := ioutil.ReadFile(configFilePath)
-	if err != nil {
-		log.Error("Error reading file: ", err)
-		return config, err
-	}
-
-	// Parse the .yml config file
-	err = yaml.Unmarshal(configBytes, &config)
-	if err != nil {
-		log.Error("Error parsing yaml: ", err)
-		return config, err
-	}
-
-	return config, nil
-}
-
-func setupProxy(config Config) error {
-	// Set the proxy address, if there is any
-	if config.Webservice.UseProxy {
-		if len(config.Webservice.ProxyAddress) == 0 {
-			err := fmt.Errorf("Missing proxy address from config file!")
-			log.Error(err)
-			return err
+		case cr := <-changeRequest:
+			switch cr.Cmd {
+			case svc.Interrogate:
+				changes <- cr.CurrentStatus
+				// Testing deadlock from https://code.google.com/p/winsvc/issues/detail?id=4
+				time.Sleep(100 * time.Millisecond)
+				changes <- cr.CurrentStatus
+			case svc.Stop, svc.Shutdown:
+				log.Infof("Stopping %s...", common.WatchdogSvcDisplayName)
+				break loop
+			default:
+				log.Errorf("unexpected control request #%d", cr)
+			}
 		}
-		proxyUrl, err := url.Parse(config.Webservice.ProxyAddress)
-		if err != nil {
-			log.Errorf("Could not parse proxy settings: %s from Config.yml. Error message: %s", config.Webservice.ProxyAddress, err)
-			return err
-		}
-		http.DefaultTransport = &http.Transport{
-			Proxy:           http.ProxyURL(proxyUrl),
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		}
-		log.Info("Default Proxy URL is set to: ", proxyUrl)
 	}
-
-	return nil
+	changes <- svc.Status{State: svc.StopPending}
+	return
 }
 
-// FIXME: locating the config file is not generic! This means this way is not going to be okay if we wanted to use this service as an auto-updater for the insight-server
-// NOTE: This only works as long as the watchdog service runs from the very same folder as the agent.
-// But they are supposed to be in the same folder by design.
-func findAgentConfigFile() (string, error) {
-	configPath := filepath.Join(baseFolder, "Config", "Config.yml")
+func runService(name string, isDebug bool) {
+	var err error
 
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		log.Error("Agent config file does not exist! Error message: ", err)
-		return "", err
+	log.Infof("starting %s service", name)
+	run := svc.Run
+	if isDebug {
+		run = debug.Run
 	}
-
-	// Successfully located agent config file
-	return configPath, nil
+	err = run(name, &paletteWatchdogService{})
+	if err != nil {
+		log.Errorf("%s service failed: %v", name, err)
+		return
+	}
+	log.Infof("%s service stopped", name)
 }
