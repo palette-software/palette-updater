@@ -40,7 +40,7 @@ func GetServiceVersion(serviceName string) (string, error) {
 	q := wmi.CreateQuery(&dst, whereClause)
 	err := wmi.Query(q, &dst)
 	if err != nil {
-		log.Error.Printf("Failed to get version of service: %s. Error message: %s", serviceName, err)
+		log.Errorf("Failed to get version of service: %s. Error message: %s", serviceName, err)
 		return "", err
 	}
 	for _, srv := range dst {
@@ -50,7 +50,7 @@ func GetServiceVersion(serviceName string) (string, error) {
 	}
 
 	err = fmt.Errorf("Failed to look up version for service: %s. The service was not found.", serviceName)
-	log.Error.Println(err)
+	log.Error(err)
 	return "", err
 }
 
@@ -58,7 +58,7 @@ func getVersion(pathName string) string {
 	var fileData []CIM_DataFile
 	cond := fmt.Sprintf("where Drive=\"%s\" and Path='%s' and Name like '%%%s%%'", getDrive(pathName), getPath(pathName), getExecutable(pathName))
 	q := wmi.CreateQuery(&fileData, cond)
-	log.Debug.Println("Query: ", q)
+	log.Debug("Query: ", q)
 	_ = wmi.Query(q, &fileData)
 	if len(fileData) == 0 {
 		return ""

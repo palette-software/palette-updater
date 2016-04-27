@@ -104,13 +104,13 @@ loop:
 		case <-tickAlive:
 			go func() {
 				if pws.lastPerformedCommand.Cmd == "stop" {
-					log.Debug.Printf("Skipped alive check for %s, since it is commanded to be stopped.", common.AgentSvcName)
+					log.Debugf("Skipped alive check for %s, since it is commanded to be stopped.", common.AgentSvcName)
 					return
 				}
 				var serviceControl svcControl.ServiceControl
 				svcStatus, err := serviceControl.Query(common.AgentSvcName)
 				if err != nil {
-					log.Error.Printf("Failed to query status of service: %s! Error message: %v", common.AgentSvcName, err)
+					log.Errorf("Failed to query status of service: %s! Error message: %v", common.AgentSvcName, err)
 					return
 				}
 
@@ -119,9 +119,9 @@ loop:
 					agentSvcMutex.Lock()
 					defer agentSvcMutex.Unlock()
 					serviceControl.Start(common.AgentSvcName)
-					log.Info.Printf("Watchdog found %s in stopped state. Restarted it.", common.AgentSvcName)
+					log.Warningf("Watchdog found %s in stopped state. Restarted it.", common.AgentSvcName)
 				} else {
-					log.Info.Printf("%s is still alive. (Service state: %d)", common.AgentSvcName, svcStatus.State)
+					log.Infof("%s is still alive. (Service state: %d)", common.AgentSvcName, svcStatus.State)
 				}
 			}()
 
@@ -133,10 +133,10 @@ loop:
 				time.Sleep(100 * time.Millisecond)
 				changes <- cr.CurrentStatus
 			case svc.Stop, svc.Shutdown:
-				log.Info.Printf("Stopping %s...", common.WatchdogSvcDisplayName)
+				log.Infof("Stopping %s...", common.WatchdogSvcDisplayName)
 				break loop
 			default:
-				log.Error.Printf("unexpected control request #%d", cr)
+				log.Errorf("unexpected control request #%d", cr)
 			}
 		}
 	}
@@ -147,17 +147,17 @@ loop:
 func runService(name string, isDebug bool) {
 	var err error
 
-	log.Info.Printf("starting %s service", name)
+	log.Infof("starting %s service", name)
 	run := svc.Run
 	if isDebug {
 		run = debug.Run
 	}
 	err = run(name, &paletteWatchdogService{})
 	if err != nil {
-		log.Error.Printf("%s service failed: %v", name, err)
+		log.Errorf("%s service failed: %v", name, err)
 		return
 	}
-	log.Info.Printf("%s service stopped", name)
+	log.Infof("%s service stopped", name)
 }
 
 var logsFolder, updatesFolder, baseFolder string
@@ -191,21 +191,25 @@ func main() {
 			panic(err)
 		}
 	}()
+	log.AddTarget(logFile, log.DebugLevel)
 
-	splunkLogger := log.NewSplunkTarget("splunk-insight.palette-software.net", "55530416-A60A-4D13-9ADD-17DBDDB15AEC")
+	// Add logging to Splunk as well
+	splunkLogger, err := log.NewSplunkTarget("splunk-insight.palette-software.net", common.WatchdogSplunkToken)
+	if err == nil {
+		defer splunkLogger.Close()
+		log.AddTarget(splunkLogger, log.DebugLevel)
+	} else {
+		log.Error("Failed to create Splunk target! Error: ", err)
+	}
 
-	// Set the levels to be ignored to ioutil.Discard
-	// Levels:  DEBUG,        INFO,         WARNING,      ERROR,        FATAL
-	log.InitLog(splunkLogger, splunkLogger, splunkLogger, splunkLogger, splunkLogger)
-
-	log.Info.Printf("Firing up %s... Command line %s", common.WatchdogSvcDisplayName, os.Args)
+	log.Infof("Firing up %s... Command line %s", common.WatchdogSvcDisplayName, os.Args)
 
 	if errorToLogLater != nil {
-		log.Error.Println("Failed to retrieve executable folder, thus base dir is not set! Error message: ",
+		log.Error("Failed to retrieve executable folder, thus base dir is not set! Error message: ",
 			errorToLogLater)
 	}
 
-	log.Info.Println("Base folder is: ", baseFolder)
+	log.Info("Base folder is: ", baseFolder)
 
 	if len(os.Args) < 2 {
 		usage("no command specified")
@@ -230,7 +234,7 @@ func main() {
 	case "is":
 		// In this case there needs to be more command line arguments, such as "auto-started"
 		if len(os.Args) < 3 {
-			log.Error.Printf("Unexpected end of command line arguments! Command line arguments: %s", os.Args)
+			log.Errorf("Unexpected end of command line arguments! Command line arguments: %s", os.Args)
 		} else {
 			cmdSecond := strings.ToLower(os.Args[2])
 			switch cmdSecond {
@@ -246,7 +250,7 @@ func main() {
 					err = serviceControl.Start(common.WatchdogSvcName)
 				}
 			default:
-				log.Error.Println("Unexpected comamnd after \"is\": ", cmdSecond)
+				log.Error("Unexpected comamnd after \"is\": ", cmdSecond)
 			}
 		}
 
@@ -271,6 +275,6 @@ func main() {
 		return
 	}
 
-	log.Info.Printf("Command %s execution finished.", os.Args)
+	log.Infof("Command %s execution finished.", os.Args)
 	return
 }

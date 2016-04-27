@@ -3,16 +3,19 @@ package main
 import (
 	"errors"
 	"fmt"
-	"github.com/StackExchange/wmi"
-	"github.com/kardianos/osext"
-	log "github.com/palette-software/insight-tester/common/logging"
-	"github.com/palette-software/palette-updater/common"
-	svcControl "github.com/palette-software/palette-updater/service_control"
-	servdis "github.com/palette-software/palette-updater/services-discovery"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	log "github.com/palette-software/insight-tester/common/logging"
+	"github.com/palette-software/palette-updater/common"
+	svcControl "github.com/palette-software/palette-updater/service_control"
+	servdis "github.com/palette-software/palette-updater/services-discovery"
+
+	"github.com/kardianos/osext"
+	"github.com/StackExchange/wmi"
 )
 
 const BatchFile = "reinstall.bat"
@@ -54,13 +57,13 @@ func stopServices(serviceControl svcControl.ServiceControl) error {
 	// return err
 }
 
-func createBatchFile(msiPath string, targetDir string) error {
+func createBatchFile(msiPath string, targetDir, installerLogFile string) error {
 	f, err := os.Create(BatchFile)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-	reinstallCommand := fmt.Sprintf("msiexec /i \"%s\" /norestart INSTALLFOLDER=\"%s\" /qnlv /log \"%s\\Logs\\installer.log\"", msiPath, targetDir, targetDir)
+	reinstallCommand := fmt.Sprintf("msiexec /i \"%s\" /norestart INSTALLFOLDER=\"%s\" /qnlv /log \"%s\"", msiPath, targetDir, installerLogFile)
 	_, err = f.WriteString(reinstallCommand)
 	if err != nil {
 		return err
@@ -71,7 +74,7 @@ func createBatchFile(msiPath string, targetDir string) error {
 func reinstallServices(msiPath string) error {
 	var dst []servdis.Win32_Service
 	whereClause := "where Name like '%" + common.AgentSvcName + "%'"
-	log.Debug.Println("Discovering service where: ", whereClause)
+	log.Debug("Discovering service where: ", whereClause)
 	q := wmi.CreateQuery(&dst, whereClause)
 	err := wmi.Query(q, &dst)
 	if err != nil {
@@ -82,15 +85,16 @@ func reinstallServices(msiPath string) error {
 	var targetDir string = ""
 	for _, srv := range dst {
 		targetDir = filepath.Dir(servdis.StripPathName(srv.PathName))
-		log.Debug.Println("Found possible target dir: ", targetDir)
+		log.Info("Found possible target dir: ", targetDir)
 
 		if targetDir == "" {
 			err = errors.New("Could not find installed agent.")
 			continue
 		}
-		err = createBatchFile(msiPath, targetDir)
+		installerLogFile := fmt.Sprintf("%s\\Logs\\installer.log", targetDir)
+		err = createBatchFile(msiPath, targetDir, installerLogFile)
 		if err != nil {
-			log.Warning.Printf("Failed to create batch file with target dir: %s. Error message: %s", targetDir, err)
+			log.Warningf("Failed to create batch file with target dir: %s. Error message: %s", targetDir, err)
 			continue
 		}
 		cmd := exec.Command(BatchFile)
@@ -98,8 +102,15 @@ func reinstallServices(msiPath string) error {
 		cmd.Stderr = os.Stderr
 		err = cmd.Run()
 		os.Remove(BatchFile)
+		// Have the contents of the installer log in the common log
+		installerResult, logErr := ioutil.ReadFile(installerLogFile)
+		if logErr != nil {
+			log.Errorf("Failed to read installer log file: %s", installerLogFile)
+		} else {
+			log.Infof("Contents of the installer.log file:\n%s", installerResult)
+		}
 		if err != nil {
-			log.Warning.Printf("Failed to execute batch file with target dir: %s. Error message: %s", targetDir, err)
+			log.Warningf("Failed to execute batch file with target dir: %s. Error message: %s", targetDir, err)
 			continue
 		}
 
@@ -136,14 +147,20 @@ func main() {
 		}
 	}()
 
-	// Set the levels to be ignored to ioutil.Discard
-	// Levels:  DEBUG,   INFO,    WARNING, ERROR,   FATAL
-	log.InitLog(logFile, logFile, logFile, logFile, logFile)
+	log.AddTarget(logFile, log.DebugLevel)
 
-	log.Info.Printf("Firing up manager... Command line %s", os.Args)
+	splunkLogger, err := log.NewSplunkTarget("splunk-insight.palette-software.net", common.WatchdogSplunkToken)
+	if err == nil {
+		defer splunkLogger.Close()
+		log.AddTarget(splunkLogger, log.DebugLevel)
+	} else {
+		log.Error("Failed to create Splunk target! Error:", err)
+	}
+
+	log.Infof("Firing up manager... Command line %s", os.Args)
 
 	if len(os.Args) < 2 {
-		log.Error.Printf("Usage: %s installer_file\n", os.Args[0])
+		log.Errorf("Usage: %s installer_file\n", os.Args[0])
 		os.Exit(1)
 	}
 
@@ -155,7 +172,7 @@ func main() {
 		// In this case the following command-line argument is going to be
 		// path for the update file.
 		if len(os.Args) < 3 {
-			log.Error.Println("Missing update file for update command!")
+			log.Error("Missing update file for update command!")
 			return
 		}
 		installerFile := os.Args[2]
@@ -165,39 +182,39 @@ func main() {
 	case "stop":
 		err = serviceControl.Stop(common.AgentSvcName)
 	default:
-		log.Error.Printf("Unexpected command to execute: %s!", command)
+		log.Errorf("Unexpected command to execute: %s!", command)
 		return
 	}
 
 	if err != nil {
-		log.Error.Printf("Failed to execute command %s! Error message: %s", command, err)
+		log.Errorf("Failed to execute command %s! Error message: %s", command, err)
 		return
 	}
 }
 
 func doUpdate(installerFile string, serviceControl svcControl.ServiceControl) error {
-	log.Info.Println("Checking prerequisites.")
+	log.Info("Checking prerequisites.")
 	err := checkUpdate(installerFile)
 	if err != nil {
-		log.Error.Printf("Stopping update as could not validate update package: %s", err)
+		log.Errorf("Stopping update as could not validate update package: %s", err)
 		os.Exit(1)
 	}
 
-	log.Info.Println("Stopping services.")
+	log.Info("Stopping services.")
 	err = serviceControl.Stop(common.AgentSvcName)
 	if err != nil {
 		// Should not stop here. Service needs to be started anyway from now on.
-		log.Warning.Printf("Could not stop service: %s", err)
+		log.Warningf("Could not stop service: %s", err)
 	}
 
-	log.Info.Println("Reinstalling services.")
+	log.Info("Reinstalling services.")
 	err = reinstallServices(installerFile)
 	if err != nil {
 		// Should not stop here. Service needs to be started anyway from now on.
-		log.Warning.Printf("Failed to install service: %s", err)
+		log.Warningf("Failed to install service: %s", err)
 	}
 
-	log.Info.Println("Restarting services.")
+	log.Info("Restarting services.")
 	err = serviceControl.Start(common.AgentSvcName)
 	// When we get error here we should try again....
 
@@ -207,14 +224,14 @@ func doUpdate(installerFile string, serviceControl svcControl.ServiceControl) er
 	errWatchdog := serviceControl.Install(common.WatchdogSvcName, common.WatchdogSvcDisplayName, common.WatchdogSvcDescription)
 	if errWatchdog != nil {
 		if !strings.Contains(errWatchdog.Error(), "already exists") {
-			log.Warning.Printf("Failed to install %s. Error message: %s", common.WatchdogSvcDisplayName, err)
+			log.Warningf("Failed to install %s. Error message: %s", common.WatchdogSvcDisplayName, err)
 		}
 	}
 
 	errWatchdog = serviceControl.Start(common.WatchdogSvcName)
 	if errWatchdog != nil {
 		if !strings.Contains(errWatchdog.Error(), "already running") {
-			log.Warning.Printf("Failed to start %s. Error message: %s", common.WatchdogSvcDisplayName, err)
+			log.Warningf("Failed to start %s. Error message: %s", common.WatchdogSvcDisplayName, err)
 		}
 	}
 
