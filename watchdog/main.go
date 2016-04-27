@@ -48,9 +48,9 @@ import (
 )
 
 // Timer constants
-const updateTimer = 13 * time.Second
-const commandTimer = 12 * time.Second
-const aliveTimer = 15 * time.Second
+const updateTimer = 3 * time.Minute
+const commandTimer = 2 * time.Minute
+const aliveTimer = 5 * time.Minute
 
 // This mutex prevents starting the agent service during agent update, because the service
 // needs to be in a stopped state while uninstalling the agent service, otherwise a system
@@ -263,15 +263,6 @@ func main() {
 		//checkForUpdates("updater")
 		//checkForUpdates("watchdog")
 		checkForUpdates("agent")
-
-	case "license":
-		_, err = log.NewSplunkTarget("splunk-insight.palette-software.net", common.WatchdogSplunkToken)
-		if err != nil {
-			log.Error("Failed to create Splunk target! Error:", err)
-		}
-		fmt.Println("Starting sleep before quitting...")
-		defer time.Sleep(2 * time.Second)
-		return
 	// FIXME: End of debugging
 
 	default:
