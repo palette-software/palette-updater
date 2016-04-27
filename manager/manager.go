@@ -122,8 +122,6 @@ func reinstallServices(msiPath string) error {
 }
 
 func main() {
-	log.Init()
-
 	// Do not use relative paths, otherwise our files will end up in Windows/System32
 	execFolder, errorToLogLater := osext.ExecutableFolder()
 	if errorToLogLater != nil {
@@ -151,7 +149,7 @@ func main() {
 
 	log.AddTarget(logFile, log.DebugLevel)
 
-	splunkLogger, err := log.NewSplunkTarget("splunk-insight.palette-software.net")
+	splunkLogger, err := log.NewSplunkTarget("splunk-insight.palette-software.net", common.WatchdogSplunkToken)
 	if err == nil {
 		defer splunkLogger.Close()
 		log.AddTarget(splunkLogger, log.DebugLevel)

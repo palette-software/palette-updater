@@ -163,7 +163,6 @@ func runService(name string, isDebug bool) {
 var logsFolder, updatesFolder, baseFolder string
 
 func main() {
-	log.Init()
 	// Do not use relative paths, otherwise our files will end up in Windows/System32
 	execFolder, errorToLogLater := osext.ExecutableFolder()
 	if errorToLogLater != nil {
@@ -195,7 +194,7 @@ func main() {
 	log.AddTarget(logFile, log.DebugLevel)
 
 	// Add logging to Splunk as well
-	splunkLogger, err := log.NewSplunkTarget("splunk-insight.palette-software.net")
+	splunkLogger, err := log.NewSplunkTarget("splunk-insight.palette-software.net", common.WatchdogSplunkToken)
 	if err == nil {
 		defer splunkLogger.Close()
 		log.AddTarget(splunkLogger, log.DebugLevel)
@@ -266,7 +265,7 @@ func main() {
 		checkForUpdates("agent")
 
 	case "license":
-		_, err = log.NewSplunkTarget("splunk-insight.palette-software.net")
+		_, err = log.NewSplunkTarget("splunk-insight.palette-software.net", common.WatchdogSplunkToken)
 		if err != nil {
 			log.Error("Failed to create Splunk target! Error:", err)
 		}
