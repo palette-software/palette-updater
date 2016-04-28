@@ -149,12 +149,18 @@ func main() {
 
 	log.AddTarget(logFile, log.DebugLevel)
 
-	splunkLogger, err := log.NewSplunkTarget("splunk-insight.palette-software.net", common.WatchdogSplunkToken)
+	licenseOwner, err := common.GetOwner()
 	if err == nil {
-		defer splunkLogger.Close()
-		log.AddTarget(splunkLogger, log.DebugLevel)
+		// Add logging to Splunk as well
+		splunkLogger, err := log.NewSplunkTarget(common.SplunkServerAddress, common.WatchdogSplunkToken, licenseOwner)
+		if err == nil {
+			defer splunkLogger.Close()
+			log.AddTarget(splunkLogger, log.DebugLevel)
+		} else {
+			log.Error("Failed to create Splunk target for manager! Error: ", err)
+		}
 	} else {
-		log.Error("Failed to create Splunk target! Error:", err)
+		log.Error("Failed to get license owner for manager! Error:", err)
 	}
 
 	log.Infof("Firing up manager... Command line %s", os.Args)
