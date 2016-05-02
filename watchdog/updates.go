@@ -24,14 +24,14 @@ func getLatestVersion(product, updateServerAddress string) (insight.UpdateVersio
 	endpoint := fmt.Sprintf("%s/updates/latest-version?product=%s", updateServerAddress, product)
 	resp, err := http.Get(endpoint)
 	if err != nil {
-		log.Errorf("Error during querying latest %s version: ", product, err)
+		log.Errorf("Error during querying latest %s version from %s: %v", product, endpoint, err)
 		return version, err
 	}
 	log.Debugf("Latest %s version response: %s", product, resp)
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		err = fmt.Errorf("Getting latest %s version failed! Server response: %s", product, resp)
+		err = fmt.Errorf("Getting latest %s version failed from %s! Server response: %s", product, endpoint, resp)
 		log.Error(err)
 		return version, err
 	}

@@ -19,7 +19,7 @@ type Config struct {
 }
 
 type Webservice struct {
-	endpoint     string `yaml:"Endpoint"`
+	Endpoint     string `yaml:"Endpoint"`
 	UseProxy     bool   `yaml:"UseProxy"`
 	ProxyAddress string `yaml:"ProxyAddress"`
 }
@@ -31,7 +31,7 @@ func (w *Webservice) GetPreparedEndpoint() (string, error) {
 		return "", err
 	}
 
-	return w.endpoint, nil
+	return w.Endpoint, nil
 }
 
 func (w *Webservice) setupProxy() error {
