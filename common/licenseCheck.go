@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/palette-software/insight-server"
+	insight_server "github.com/palette-software/insight-server/lib"
 
 	"github.com/kardianos/osext"
 )
