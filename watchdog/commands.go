@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
-	insight "github.com/palette-software/insight-server"
+	insight "github.com/palette-software/insight-server/lib"
 	log "github.com/palette-software/insight-tester/common/logging"
 
 	gocp "github.com/cleversoap/go-cp"

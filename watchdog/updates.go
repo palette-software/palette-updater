@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	insight "github.com/palette-software/insight-server"
+	insight "github.com/palette-software/insight-server/lib"
 	log "github.com/palette-software/insight-tester/common/logging"
 	"github.com/palette-software/palette-updater/common"
 	servdis "github.com/palette-software/palette-updater/services-discovery"

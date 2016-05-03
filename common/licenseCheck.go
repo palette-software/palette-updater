@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/palette-software/insight-server"
+	insight_server "github.com/palette-software/insight-server/lib"
 
 	"github.com/kardianos/osext"
 )
@@ -47,7 +47,7 @@ func GetOwner() (string, error) {
 	}
 
 	if ownerName == "" {
-		fmt.Println("No valid license file found!")
+		err = fmt.Errorf("No valid license file found!")
 		return "", err
 	}
 

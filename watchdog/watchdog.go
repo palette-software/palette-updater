@@ -6,7 +6,7 @@ import (
 
 	log "github.com/palette-software/insight-tester/common/logging"
 	"github.com/palette-software/palette-updater/common"
-	insight "github.com/palette-software/insight-server"
+	insight "github.com/palette-software/insight-server/lib"
 	svcControl "github.com/palette-software/palette-updater/service_control"
 
 	"golang.org/x/sys/windows/svc"
