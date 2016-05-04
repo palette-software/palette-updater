@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	insight_server "github.com/palette-software/insight-server/lib"
+	log "github.com/palette-software/insight-tester/common/logging"
 
 	"github.com/kardianos/osext"
 )
@@ -37,6 +38,7 @@ func GetOwner() (string, error) {
 	ownerName := ""
 	for _, file := range files {
 		if strings.HasSuffix(file.Name(), ".license") {
+			log.Info("Validating license file: ", file.Name())
 			licenseFile := filepath.Join(execFolder, file.Name())
 			ownerName, err = queryOwnerOfLicense(insightServerAddress, licenseFile)
 			if err != nil {
@@ -63,6 +65,10 @@ func queryOwnerOfLicense(insightServerAddress, licenseFile string) (string, erro
 	resp, err := client.Do(request)
 	if err != nil {
 		return "", fmt.Errorf("Client do request failed! Request: %v. Error message: %v", request, err)
+	}
+
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("License check failed for file: %s. Server response: %s", licenseFile, resp)
 	}
 
 	body := &bytes.Buffer{}

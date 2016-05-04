@@ -94,7 +94,7 @@ func main() {
 	log.AddTarget(logFile, log.DebugLevel)
 
 	licenseOwner, err := common.GetOwner()
-	log.Info("Owner of the license:", licenseOwner)
+	log.Info("Owner of the license: ", licenseOwner)
 	if err == nil {
 		// Add logging to Splunk as well
 		splunkLogger, err := log.NewSplunkTarget(common.SplunkServerAddress, common.WatchdogSplunkToken, licenseOwner)
