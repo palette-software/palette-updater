@@ -45,6 +45,8 @@ import (
 	"golang.org/x/sys/windows/svc"
 )
 
+const shutdownTimer = 10 * time.Second
+
 // This mutex prevents starting the agent service during agent update, because the service
 // needs to be in a stopped state while uninstalling the agent service, otherwise a system
 // reboot might be required, which is really not desired.
@@ -61,8 +63,7 @@ func usage(errormsg string) {
 	os.Exit(2)
 }
 
-const shutdownTimer = 10 * time.Second
-
+// Global variables for proper working directories and paths
 var logsFolder, updatesFolder, baseFolder string
 
 func main() {
