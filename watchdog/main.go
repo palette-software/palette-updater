@@ -35,6 +35,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	log "github.com/palette-software/insight-tester/common/logging"
 	"github.com/palette-software/palette-updater/common"
@@ -43,6 +44,8 @@ import (
 	"github.com/kardianos/osext"
 	"golang.org/x/sys/windows/svc"
 )
+
+const shutdownTimer = 10 * time.Second
 
 // This mutex prevents starting the agent service during agent update, because the service
 // needs to be in a stopped state while uninstalling the agent service, otherwise a system
@@ -60,6 +63,7 @@ func usage(errormsg string) {
 	os.Exit(2)
 }
 
+// Global variables for proper working directories and paths
 var logsFolder, updatesFolder, baseFolder string
 
 func main() {
@@ -100,6 +104,11 @@ func main() {
 		splunkLogger, err := log.NewSplunkTarget(common.SplunkServerAddress, common.WatchdogSplunkToken, licenseOwner)
 		if err == nil {
 			defer splunkLogger.Close()
+			// Only Splunk target may block the shutdown, so this is the only case we need
+			// to make sure that Watchdog shuts down in time.
+			// IMPORTANT NOTE: the order of the deferred calls are important, because Splunk
+			// target's Close() is blocking call!!
+			defer shutdownInTime()
 			log.AddTarget(splunkLogger, log.DebugLevel)
 		} else {
 			log.Error("Failed to create Splunk target for watchdog! Error: ", err)
@@ -169,4 +178,19 @@ func main() {
 
 	log.Infof("Command %s execution finished.", os.Args)
 	return
+}
+
+// Make sure that Watchdog stops in a timely fashion. This is really important because it is
+// running as a service, and if the service fails to stop it can mess up our Palette Insight
+// Agent update process.
+func shutdownInTime() {
+	go func() {
+		tickShutdown := time.Tick(shutdownTimer)
+		select {
+		case <-tickShutdown:
+			// It is necessary to shut down normally in a timely fashion
+			log.Error("Watchdog shutdown timed out! Force quitting.")
+			os.Exit(0)
+		}
+	}()
 }
