@@ -95,7 +95,7 @@ func main() {
 			panic(err)
 		}
 	}()
-	log.AddTarget(logFile, log.DebugLevel)
+	log.AddTarget(logFile, log.LevelDebug)
 
 	licenseOwner, err := common.GetOwner()
 	log.Info("Owner of the license: ", licenseOwner)
@@ -109,7 +109,7 @@ func main() {
 			// IMPORTANT NOTE: the order of the deferred calls are important, because Splunk
 			// target's Close() is blocking call!!
 			defer shutdownInTime()
-			log.AddTarget(splunkLogger, log.DebugLevel)
+			log.AddTarget(splunkLogger, log.LevelDebug)
 		} else {
 			log.Error("Failed to create Splunk target for watchdog! Error: ", err)
 		}

@@ -147,7 +147,7 @@ func main() {
 		}
 	}()
 
-	log.AddTarget(logFile, log.DebugLevel)
+	log.AddTarget(logFile, log.LevelDebug)
 
 	licenseOwner, err := common.GetOwner()
 	if err == nil {
@@ -155,7 +155,7 @@ func main() {
 		splunkLogger, err := log.NewSplunkTarget(common.SplunkServerAddress, common.WatchdogSplunkToken, licenseOwner)
 		if err == nil {
 			defer splunkLogger.Close()
-			log.AddTarget(splunkLogger, log.DebugLevel)
+			log.AddTarget(splunkLogger, log.LevelDebug)
 		} else {
 			log.Error("Failed to create Splunk target for manager! Error: ", err)
 		}
