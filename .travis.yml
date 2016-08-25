@@ -1,4 +1,5 @@
 language: go
+sudo: required
 
 go:
   - 1.5
@@ -6,9 +7,11 @@ go:
 env:
   matrix:
     - TMP_GOOS=windows TMP_GOARCH=amd64
-
-global:
-  - secure: iK8Zcm1f3/BbCvMgEISgZ0WvmHpk2V4EQHycZlae1hGB2Xr8R9MmIV+fu19+lBu1QOSBpXmUeVJvSwfe9sJHYTKJbcsHeGQM7AIAESvIOiIIZbEDp98WGXwEfxQ1733TgeEX10St4PK8kE3v7G+E5qYhUffjO4DLuE9BfmaQRei2BbcG382rnj9c8vYWF4O00fZEzcDvnwvD9IaeQnB4Jy4e0kkHsIJfvOkwdxbLf6amX9Q7fF7SqBnxHgmvitHef2RBMjBfjT8StUqrBoUVt93j2XXY8m6WWpggaAjilWzvb9Kw9W4XwLryqM+cMCOnbx14SxElrAmmxKjdRFPlSuAWbVaX7O5rK4aANMxXJ7paNUk9bqaWXKor+NsUQ5HC3zPHTRHsmV53J2Yd9bk7n2joAswNXvdN1+KzHY87jUbxZLSakSJ7aSW8ac8MMaUAEzmZizzmqSWBNXfpWFmqvtpjS7fP2zwWfz6f2YWIoVL0n/4+jIWJTR+Ai6fT6RDK3J+gj9A3U4KC2k328nV5mTxFB8SkqWpmJ5RUE6gtE5AZzIcba0mF3l7qKAjD3RjugnPqZ+16fmjjOM60dEeFjhkS43kHF9b7yO+Lk2l+66ruQg4pERj2TbuZqGf6kb95zcflE2vZQ5IjtsswwiDWCIoOI2Praf5UU22fcMl7lkw=
+  global:
+    - secure: "QrutktXEqep+IhC+00JzsyENmLuSPv2/0IwnEzwAf33dW/gcfx04HVRGsLAbXz2SdyRrYPMBDtNWJ3qf0wNEeIh0csuAJRH4bokqL+xdtDfTS36AR2WiZB7zVFZ2vKdwQsst51qRqPIR4G70tBP9ExNhQUGhXo5BwQXMPbNempU2PwUhnNWlSZtloD5KJu4mEuKuaVdTU2iwUrKPOZsSCcmLDizYqVAaXAiLRcNCPQceCnit0Ms7oXFhgyo6Vs/7kjPfIxm4wMgzd2mSg4lQfqvTBUBxIhGQyn60udimvPw3RO9RDTnyXRK8Ug39heBJPSXedaKxKrnlNVyIgsods0do2EFhhyR6Kw2HyYusAvDsEnZn2BWsF1sdUOWJ/b9EH8wfi4tnuKSDbV57MkLncN6rPeqhMn3XnVZSjwuPcjJQgFyHjSUK7BTRaXZmskU0GNitia4OCv75blVTwpCwPRASIvjoaMYZVOExbLxAE/ICOw2glSvhjtR38ALnqrL0rGX14yWtxaBstpvm2tJ2PBMUcsQF0RPA1/3/eDilG51cghFhWJQ/r7Tdt2x7XvPeuxfX9mm1uLMsvOrVw5BBisFafbhZo5d5UDdGzp1Gc9QFakn55OByk3rqp3Y5Zlb8GRkT7T+u5uCdsbWCKK1K+inD/x5TNQvAniOPvkJy+Pk="
+    - PRODUCT_VERSION=v1.0.$TRAVIS_BUILD_NUMBER
+    - OWNER=palette-software
+    - PACKAGE=palette-updater
 
 before_install:
   - export GOOS=${TMP_GOOS}
@@ -20,17 +23,20 @@ before_install:
 script:
   - go get -t -v ./...
 
-after_success:
-  - zip -r -j palette-updater-${TRAVIS_TAG}.zip $GOPATH/bin/*
+before_deploy:
+  # PCKG_DIR is required in release-to-github.sh
+  - export PCKG_DIR=`pwd`
+  - export PCKG_FILE=palette-updater-${PRODUCT_VERSION}.zip
+  - zip -r -j $PCKG_FILE $GOPATH/bin/*
 
 deploy:
-  provider: releases
-  api_key:
-    secure: Ht0/u0+sbmFcFGjRhgR1PKfGdykS9Lxj3f6dwthtvaRS9xqQ4wpx1loqr4zf73SvW5ZQbBNmAE1oYL/PK5Ey/yzJP1/Nu4cALRwkVREH+ZyxYBk2MH91/sPUrNoN5Gr/Nea4K762SX9gRkfewyx+zbbWIWGAaItKOT8C6IW6Ic/ZcymoJv3wO+CQsuLuwt90mn7h/bT4bbCDAA/4AgQ98XbeHy4ndlU+q5FIE2EnTjNisW8bGGA6WMcpDfW6b5/mMzikGlmR90xaiteTeBXnofydEpPfyfdazE4teNJVBNC9CRfJr92CUTW96UHqjmxq+FopiO8IyDHjjs7cWXAs94n5xRAa3zwg/lQcTQVlQSKhFHe4MRfNiYf8uocgKzx3eK2ZwCjVkwbEkNnfoXEUueZbNB5s4KUEQp4fTSQAxdwLS/o7jO7G0y/IrQaSeWzPWIjDNHOh0yEx9tjk/eFip43P7bKuldZIZcjGqwFh05dw+MufVRHpPM2Ubd7Be+w5AewqCNCiyhnNdQJMWBqq3NXmBBIavZoQTGDoAd1gRZP6A1x5LqvyywfAX7SFrawpaQKYenj0neEoyAT4tKLZRgMn13Rn655XOxl/aBr2HpgD2DNSA7/CV4JaW5aVq64C7LcqIyf/7Kos8hhsm1buToRJZVrrbiKXTzfO9petGiE=
-  file: palette-updater-${TRAVIS_TAG}.zip
+  skip_cleanup: true
+  provider: script
+  # Only deploy from the master branch (and if we don't have a tag specified, because they are auto-committed)
+  script: $TRAVIS_BUILD_DIR/release-to-github.sh
   on:
-    repo: palette-software/palette-updater
-    tags: true
+    branch: master
+    tags: false
 
 notifications:
   email:
