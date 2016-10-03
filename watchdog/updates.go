@@ -171,7 +171,7 @@ func checkForUpdates(product, insightServerAddress string) {
 	}
 
 	// Perform the update, if there is a newer version
-	if insight.IsNewerVersion(&latestVersion.Version, &currentVersion) {
+	if insight.IsNewerVersion(latestVersion.Version, currentVersion) {
 		log.Infof("Found newer %s version (%s) on server. Current version is %s",
 			product, latestVersion.String(), currentVersion.String())
 

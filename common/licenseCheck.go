@@ -1,14 +1,9 @@
 package common
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
-	"mime/multipart"
 	"net/http"
-	"os"
-	"path/filepath"
 
 	insight_server "github.com/palette-software/insight-server/lib"
 	log "github.com/palette-software/insight-tester/common/logging"
