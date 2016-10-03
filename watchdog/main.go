@@ -97,11 +97,11 @@ func main() {
 	}()
 	log.AddTarget(logFile, log.LevelDebug)
 
-	licenseOwner, err := common.GetOwner()
-	log.Info("Owner of the license: ", licenseOwner)
+	license, err := common.GetLicenseData(execFolder)
 	if err == nil {
+		log.Info("Owner of the license: ", license.Owner)
 		// Add logging to Splunk as well
-		splunkLogger, err := log.NewSplunkTarget(common.SplunkServerAddress, common.WatchdogSplunkToken, licenseOwner)
+		splunkLogger, err := log.NewSplunkTarget(common.SplunkServerAddress, common.WatchdogSplunkToken, license.Owner)
 		if err == nil {
 			defer splunkLogger.Close()
 			// Only Splunk target may block the shutdown, so this is the only case we need

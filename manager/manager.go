@@ -14,8 +14,8 @@ import (
 	svcControl "github.com/palette-software/palette-updater/service_control"
 	servdis "github.com/palette-software/palette-updater/services-discovery"
 
-	"github.com/kardianos/osext"
 	"github.com/StackExchange/wmi"
+	"github.com/kardianos/osext"
 )
 
 const BatchFile = "reinstall.bat"
@@ -149,10 +149,10 @@ func main() {
 
 	log.AddTarget(logFile, log.LevelDebug)
 
-	licenseOwner, err := common.GetOwner()
+	license, err := common.GetLicenseData(execFolder)
 	if err == nil {
 		// Add logging to Splunk as well
-		splunkLogger, err := log.NewSplunkTarget(common.SplunkServerAddress, common.WatchdogSplunkToken, licenseOwner)
+		splunkLogger, err := log.NewSplunkTarget(common.SplunkServerAddress, common.WatchdogSplunkToken, license.Owner)
 		if err == nil {
 			defer splunkLogger.Close()
 			log.AddTarget(splunkLogger, log.LevelDebug)

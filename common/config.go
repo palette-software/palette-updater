@@ -1,13 +1,13 @@
 package common
 
 import (
-	"io/ioutil"
-	"os"
-	"path/filepath"
 	"crypto/tls"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 
 	log "github.com/palette-software/insight-tester/common/logging"
 
@@ -15,6 +15,7 @@ import (
 )
 
 type Config struct {
+	LicenseKey string     `yaml:"LicenseKey"`
 	Webservice Webservice `yaml:"Webservice"`
 }
 
