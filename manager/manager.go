@@ -151,6 +151,7 @@ func main() {
 
 	license, err := common.GetLicenseData(execFolder)
 	if err == nil {
+		log.Info("Owner of the license:", license.Owner)
 		// Add logging to Splunk as well
 		splunkLogger, err := log.NewSplunkTarget(common.SplunkServerAddress, common.WatchdogSplunkToken, license.Owner)
 		if err == nil {
@@ -160,7 +161,7 @@ func main() {
 			log.Error("Failed to create Splunk target for manager! Error: ", err)
 		}
 	} else {
-		log.Error("Failed to get license owner for manager! Error:", err)
+		log.Error("Failed to get license data in manager! Continuing without Splunk logging! Error:", err)
 	}
 
 	log.Infof("Firing up manager... Command line %s", os.Args)
