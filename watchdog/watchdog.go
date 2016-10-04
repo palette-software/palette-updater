@@ -4,9 +4,9 @@ import (
 	"os"
 	"time"
 
+	insight "github.com/palette-software/insight-server/lib"
 	log "github.com/palette-software/insight-tester/common/logging"
 	"github.com/palette-software/palette-updater/common"
-	insight "github.com/palette-software/insight-server/lib"
 	svcControl "github.com/palette-software/palette-updater/service_control"
 
 	"golang.org/x/sys/windows/svc"
@@ -30,11 +30,11 @@ func (pws *paletteWatchdogService) Execute(args []string, changeRequest <-chan s
 	tickCommand := time.Tick(commandTimer)
 	tickAlive := time.Tick(aliveTimer)
 	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
-	loop:
+loop:
 	for {
 		select {
 		case <-tickUpdate:
-		// Do the checks in a different thread so that the main thread may remain responsive
+			// Do the checks in a different thread so that the main thread may remain responsive
 			go func() {
 				// Remove the updates folder to make sure the disk is not going to filled
 				// with orphaned update files
@@ -51,7 +51,7 @@ func (pws *paletteWatchdogService) Execute(args []string, changeRequest <-chan s
 			}()
 
 		case <-tickCommand:
-		// Do the checks in a different thread so that the main thread may remain responsive
+			// Do the checks in a different thread so that the main thread may remain responsive
 			go func() {
 				insightServerAddress, err := common.ObtainInsightServerAddress(baseFolder)
 				if err != nil {

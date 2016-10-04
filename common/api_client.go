@@ -1,16 +1,16 @@
 package common
 
 import (
-	"net/http"
-	"time"
-	"fmt"
-	"os"
 	"bytes"
-	"mime/multipart"
-	"path/filepath"
+	"fmt"
 	"io"
 	"io/ioutil"
+	"mime/multipart"
+	"net/http"
+	"os"
 	"path"
+	"path/filepath"
+	"time"
 
 	log "github.com/palette-software/insight-tester/common/logging"
 )
@@ -19,8 +19,8 @@ const InsightApiVersion = "v1"
 
 type ApiClient struct {
 	httpClient *http.Client
-	config 		Config
-	baseUrl		string
+	config     Config
+	baseUrl    string
 }
 
 func NewApiClient(baseFolder string) (*ApiClient, error) {
@@ -47,8 +47,8 @@ func NewApiClientWithConfig(config Config) (*ApiClient, error) {
 
 	apiClient := &ApiClient{
 		httpClient: innerClient,
-		config: config,
-		baseUrl: fmt.Sprintf("%s/api/%s", insightServerAddress, InsightApiVersion),
+		config:     config,
+		baseUrl:    fmt.Sprintf("%s/api/%s", insightServerAddress, InsightApiVersion),
 	}
 	return apiClient, nil
 }
@@ -84,7 +84,7 @@ func (c *ApiClient) Get(endpoint string) (*http.Response, error) {
 	return resp, nil
 }
 
-func (c* ApiClient) DownloadFile(endpoint, destinationPath string) error {
+func (c *ApiClient) DownloadFile(endpoint, destinationPath string) error {
 	url := fmt.Sprint(c.baseUrl, endpoint)
 	resp, err := c.Get(url)
 	if err != nil {
@@ -113,7 +113,7 @@ func (c* ApiClient) DownloadFile(endpoint, destinationPath string) error {
 	return nil
 }
 
-func (c* ApiClient) UploadFile(endpoint, sourcePath string) error {
+func (c *ApiClient) UploadFile(endpoint, sourcePath string) error {
 	url := fmt.Sprint(c.baseUrl, endpoint)
 	req, err := newfileUploadRequest(url, "file", sourcePath)
 	if err != nil {

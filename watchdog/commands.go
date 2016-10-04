@@ -3,16 +3,16 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"time"
-	"net/url"
-	"path"
 
-	"github.com/palette-software/palette-updater/common"
 	insight "github.com/palette-software/insight-server/lib"
 	log "github.com/palette-software/insight-tester/common/logging"
+	"github.com/palette-software/palette-updater/common"
 
 	gocp "github.com/cleversoap/go-cp"
 )
