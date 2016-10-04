@@ -42,7 +42,7 @@ func (pws *paletteWatchdogService) Execute(args []string, changeRequest <-chan s
 
 				insightServerAddress, err := common.ObtainInsightServerAddress(baseFolder)
 				if err != nil {
-					log.Error("Failed to obtain Insight Server address while checking for updates! Error:", err)
+					log.Error("Failed to obtain Insight Server address while checking for updates! Error: ", err)
 				}
 
 				//checkForUpdates("updater")
@@ -55,7 +55,7 @@ func (pws *paletteWatchdogService) Execute(args []string, changeRequest <-chan s
 			go func() {
 				insightServerAddress, err := common.ObtainInsightServerAddress(baseFolder)
 				if err != nil {
-					log.Error("Failed to obtain Insight Server address for checking commands! Error:", err)
+					log.Error("Failed to obtain Insight Server address for checking commands! Error: ", err)
 				}
 				pws.checkForCommand(insightServerAddress)
 			}()

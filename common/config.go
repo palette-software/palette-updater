@@ -58,13 +58,8 @@ func (w *Webservice) setupProxy() error {
 	return nil
 }
 
-func ParseConfig(baseFolder string) (Config, error) {
+func ParseConfig(configFilePath string) (Config, error) {
 	var config Config
-
-	configFilePath, err := findAgentConfigFile(baseFolder)
-	if err != nil {
-		return config, err
-	}
 
 	configBytes, err := ioutil.ReadFile(configFilePath)
 	if err != nil {
@@ -82,8 +77,18 @@ func ParseConfig(baseFolder string) (Config, error) {
 	return config, nil
 }
 
+func ParseAgentConfig(baseFolder string) (Config, error) {
+	var config Config
+	configFilePath, err := FindAgentConfigFile(baseFolder)
+	if err != nil {
+		return config, err
+	}
+
+	return ParseConfig(configFilePath)
+}
+
 func ObtainInsightServerAddress(baseFolder string) (string, error) {
-	config, err := ParseConfig(baseFolder)
+	config, err := ParseAgentConfig(baseFolder)
 	if err != nil {
 		return "", err
 	}
@@ -99,7 +104,7 @@ func ObtainInsightServerAddress(baseFolder string) (string, error) {
 // FIXME: locating the config file is not generic! This means this way is not going to be okay if we wanted to use this service as an auto-updater for the insight-server
 // NOTE: This only works as long as the watchdog service runs from the very same folder as the agent.
 // But they are supposed to be in the same folder by design.
-func findAgentConfigFile(baseFolder string) (string, error) {
+func FindAgentConfigFile(baseFolder string) (string, error) {
 	configPath := filepath.Join(baseFolder, "Config", "Config.yml")
 
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {

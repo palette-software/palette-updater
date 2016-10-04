@@ -100,13 +100,13 @@ func getCurrentVersion(product string) (currentVersion insight.Version, err erro
 func downloadVersion(updateServerAddress, product string, version insight.UpdateVersion) (string, error) {
 	versionString := version.String()
 	log.Infof("Downloading %s version: %s", product, versionString)
-	filePath := fmt.Sprintf("%s-%s", product, versionString)
-	endpoint := fmt.Sprintf("%s/updates/products/%s/%s/%s", updateServerAddress, product, versionString, filePath)
+	fileName := fmt.Sprintf("%s-%s", product, versionString)
+	endpoint := fmt.Sprintf("%s/updates/products/%s/%s/%s", updateServerAddress, product, versionString, fileName)
 
 	// Download
 	resp, err := http.Get(endpoint)
 	if err != nil {
-		log.Error("Failed to download %s version: %s", product, versionString)
+		log.Errorf("Failed to download %s version: %s", product, versionString)
 		return "", err
 	}
 	defer resp.Body.Close()
@@ -119,7 +119,7 @@ func downloadVersion(updateServerAddress, product string, version insight.Update
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		log.Errorf("Failed to read contents of downloaded file: %s. Error message: %s", filePath, err)
+		log.Errorf("Failed to read contents of downloaded file: %s. Error message: %s", fileName, err)
 	}
 
 	// Save the update into the updates folder
@@ -133,18 +133,18 @@ func downloadVersion(updateServerAddress, product string, version insight.Update
 	// Check the MD5 hash of the downloaded file. If it is not right, retry the download in the next update round.
 	savedFileHash := md5.Sum(body)
 	latestHash := fmt.Sprintf("%32x", savedFileHash)
-	log.Infof("MD5 hash of %s: %s", filePath, latestHash)
+	log.Infof("MD5 hash of %s: %s", fileName, latestHash)
 
 	if latestHash != version.Md5 {
 		err = fmt.Errorf("MD5 hash mismatch for file: %s! Expected hash is %s, but calculated is %s.",
-			filePath, version.Md5, latestHash)
+			fileName, version.Md5, latestHash)
 		log.Error(err)
 		return "", err
 	}
 
-	filePath = filepath.Join(updatesFolder, filePath)
+	filePath := filepath.Join(updatesFolder, fileName)
 
-	err = ioutil.WriteFile(filePath, body, 777)
+	err = ioutil.WriteFile(fileName, body, 777)
 	if err != nil {
 		log.Errorf("Failed to save file: %s! Error message: %s", filePath, err)
 		return "", err

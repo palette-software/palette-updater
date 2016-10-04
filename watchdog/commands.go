@@ -3,12 +3,14 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"time"
+	"net/url"
+	"path"
 
+	"github.com/palette-software/palette-updater/common"
 	insight "github.com/palette-software/insight-server/lib"
 	log "github.com/palette-software/insight-tester/common/logging"
 
@@ -50,20 +52,22 @@ func performCommand(arguments ...string) (err error) {
 }
 
 func (pws *paletteWatchdogService) checkForCommand(insightServerAddress string) error {
-	// FIXME: tenant=default needs a real tenant in the future
-	resp, err := http.Get(insightServerAddress + "/commands/recent?tenant=default")
+	client, err := common.NewApiClient(baseFolder)
 	if err != nil {
-		log.Errorf("Error during querying recent command: ", err)
+		log.Error("Failed to create Insight API client while checking for command! Error: ", err)
+	}
+	hostname, err := os.Hostname()
+	if err != nil {
+		log.Error("Failed to get hostname for command check! Error: ", err)
 		return err
 	}
-	log.Debugf("Recent command response: %s", resp)
+	resp, err := client.Get(fmt.Sprint("/command?hostname=", url.QueryEscape(hostname)))
+	if err != nil {
+		// The error has already been logged
+		return err
+	}
+	log.Debugf("Recent command response: %v", resp)
 	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		err = fmt.Errorf("Getting recent command failed! Server response: %s", resp)
-		log.Error(err)
-		return err
-	}
 
 	// Decode the JSON in the response
 	var command insight.AgentCommand
@@ -91,12 +95,79 @@ func (pws *paletteWatchdogService) checkForCommand(insightServerAddress string) 
 		return nil
 	}
 
-	err = performCommand(command.Cmd)
-	if err != nil {
-		log.Error("Failed to perform command! Error message: ", err)
+	switch command.Cmd {
+	case "start", "stop":
+		err = performCommand(command.Cmd)
+		if err != nil {
+			log.Errorf("Failed to perform command: '%s'! Error message: %v", command.Cmd, err)
+			return err
+		}
+	case "GET-CONFIG":
+		err = performGetConfig(client, hostname)
+		if err != nil {
+			log.Error("Failed to get and apply new config file! Error: ", err)
+			return err
+		}
+
+	case "PUT-CONFIG":
+		log.Info("Uploading agent's config file...")
+		agentConfigPath, err := common.FindAgentConfigFile(baseFolder)
+		if err != nil {
+			return err
+		}
+
+		err = client.UploadFile(fmt.Sprint("/config?hostname=", url.QueryEscape(hostname)), agentConfigPath)
+		if err != nil {
+			return err
+		}
+		log.Info("Successfully uploaded agent's config file: ", agentConfigPath)
+	default:
+		err = fmt.Errorf("Unknown command received: %v", command.Cmd)
+		log.Error(err)
 		return err
 	}
 
 	pws.lastPerformedCommand = command
 	return err
+}
+
+func performGetConfig(client *common.ApiClient, hostname string) error {
+	log.Info("Acquiring remote config...")
+	// Create a temporary folder for incoming config file and delete it after reconfiguration is done
+	incomingConfigFolder := path.Join(baseFolder, "incoming-config")
+	defer os.RemoveAll(incomingConfigFolder)
+
+	destinationPath := path.Join(incomingConfigFolder, "Config.yml")
+	err := client.DownloadFile(fmt.Sprint("/config?hostname=", url.QueryEscape(hostname)), destinationPath)
+	if err != nil {
+		return err
+	}
+
+	// Make sure that the downloaded Config.yml is correct and contains the required fields
+	newConfig, err := common.ParseConfig(destinationPath)
+	if err != nil {
+		return err
+	}
+
+	license, err := common.GetLicenseDataForConfig(newConfig)
+	if err != nil {
+		return err
+	}
+
+	if !license.Valid {
+		err = fmt.Errorf("License is invalid in new conifg file: '%s'! License information: %v",
+			destinationPath, license)
+		log.Error(err)
+		return err
+	}
+
+	// Overwrite Insight Agent's current config file
+	currentConfigPath, err := common.FindAgentConfigFile(baseFolder)
+	if err != nil {
+		return err
+	}
+	os.Rename(destinationPath, currentConfigPath)
+
+	log.Info("Successfully acquired and applied remote config file.")
+	return nil
 }

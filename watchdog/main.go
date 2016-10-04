@@ -114,7 +114,7 @@ func main() {
 			log.Error("Failed to create Splunk target for watchdog! Error: ", err)
 		}
 	} else {
-		log.Error("Failed to get license data for watchdog! Continuing without Splunk logger! Error:", err)
+		log.Error("Failed to get license data for watchdog! Continuing without Splunk logger! Error: ", err)
 	}
 
 	log.Infof("Firing up %s... Command line %s", common.WatchdogSvcDisplayName, os.Args)
