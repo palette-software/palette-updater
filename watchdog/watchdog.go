@@ -40,24 +40,13 @@ loop:
 				// with orphaned update files
 				os.RemoveAll(updatesFolder)
 
-				insightServerAddress, err := common.ObtainInsightServerAddress(baseFolder)
-				if err != nil {
-					log.Error("Failed to obtain Insight Server address while checking for updates! Error: ", err)
-				}
-
-				//checkForUpdates("updater")
-				//checkForUpdates("watchdog")
-				checkForUpdates("agent", insightServerAddress)
+				checkForUpdates()
 			}()
 
 		case <-tickCommand:
 			// Do the checks in a different thread so that the main thread may remain responsive
 			go func() {
-				insightServerAddress, err := common.ObtainInsightServerAddress(baseFolder)
-				if err != nil {
-					log.Error("Failed to obtain Insight Server address for checking commands! Error: ", err)
-				}
-				pws.checkForCommand(insightServerAddress)
+				pws.checkForCommand()
 			}()
 
 		case <-tickAlive:

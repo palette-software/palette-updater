@@ -1,18 +1,14 @@
 package common
 
 import (
-	"crypto/tls"
-	"fmt"
 	"io/ioutil"
-	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 
 	log "github.com/palette-software/insight-tester/common/logging"
 
-	"gopkg.in/yaml.v2"
 	"github.com/palette-software/insight-server/lib"
+	"gopkg.in/yaml.v2"
 )
 
 type Config struct {
@@ -24,40 +20,6 @@ type Webservice struct {
 	Endpoint     string `yaml:"Endpoint"`
 	UseProxy     bool   `yaml:"UseProxy"`
 	ProxyAddress string `yaml:"ProxyAddress"`
-}
-
-func (w *Webservice) GetPreparedEndpoint() (string, error) {
-	// Do the proxy setup, if necessary
-	err := w.setupProxy()
-	if err != nil {
-		return "", err
-	}
-
-	return w.Endpoint, nil
-}
-
-func (w *Webservice) setupProxy() error {
-	// Set the proxy address, if there is any
-	if w.UseProxy {
-		if len(w.ProxyAddress) == 0 {
-			err := fmt.Errorf("Missing proxy address from config file!")
-			log.Error(err)
-			return err
-		}
-		proxyUrl, err := url.Parse(w.ProxyAddress)
-		if err != nil {
-			log.Errorf("Could not parse proxy settings: %s from %s. Error message: %s",
-				w.ProxyAddress, insight_server.AgentConfigFileName, err)
-			return err
-		}
-		http.DefaultTransport = &http.Transport{
-			Proxy:           http.ProxyURL(proxyUrl),
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		}
-		log.Info("Default Proxy URL is set to: ", proxyUrl)
-	}
-
-	return nil
 }
 
 func ParseConfig(configFilePath string) (Config, error) {
@@ -87,20 +49,6 @@ func ParseAgentConfig(baseFolder string) (Config, error) {
 	}
 
 	return ParseConfig(configFilePath)
-}
-
-func ObtainInsightServerAddress(baseFolder string) (string, error) {
-	config, err := ParseAgentConfig(baseFolder)
-	if err != nil {
-		return "", err
-	}
-
-	insightServerAddress, err := config.Webservice.GetPreparedEndpoint()
-	if err != nil {
-		return "", err
-	}
-
-	return insightServerAddress, nil
 }
 
 // FIXME: locating the config file is not generic! This means this way is not going to be okay if we wanted to use this service as an auto-updater for the insight-server

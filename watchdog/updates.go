@@ -5,9 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"net/http"
 	"os"
-	"path/filepath"
+	"path"
 	"strconv"
 	"strings"
 
@@ -17,22 +16,12 @@ import (
 	servdis "github.com/palette-software/palette-updater/services-discovery"
 )
 
-func getLatestVersion(product, updateServerAddress string) (insight.UpdateVersion, error) {
-	log.Debugf("Getting latest %s version...", product)
+func getLatestVersion(client *common.ApiClient) (insight.UpdateVersion, error) {
+	log.Debugf("Getting latest agent version...")
 
 	version := insight.UpdateVersion{}
-	endpoint := fmt.Sprintf("%s/updates/latest-version?product=%s", updateServerAddress, product)
-	resp, err := http.Get(endpoint)
+	resp, err := client.Get("/agent/version")
 	if err != nil {
-		log.Errorf("Error during querying latest %s version from %s: %v", product, endpoint, err)
-		return version, err
-	}
-	log.Debugf("Latest %s version response: %s", product, resp)
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		err = fmt.Errorf("Getting latest %s version failed from %s! Server response: %s", product, endpoint, resp)
-		log.Error(err)
 		return version, err
 	}
 
@@ -41,7 +30,7 @@ func getLatestVersion(product, updateServerAddress string) (insight.UpdateVersio
 		return version, fmt.Errorf("Error while deserializing version response body. Error message: %v", err)
 	}
 
-	log.Info("Latest available version: ", version.String())
+	log.Info("Latest available version on Insight Server: ", version)
 	return version, nil
 }
 
@@ -92,101 +81,74 @@ func getCurrentVersion(product string) (currentVersion insight.Version, err erro
 		return insight.Version{0, 0, 0}, err
 	}
 
-	log.Infof("Currently installed %s version: %s", product, currentVersion.String())
+	log.Infof("Currently installed %s version: %s", product, currentVersion)
 	return currentVersion, err
 }
 
-// Downloads the specified version and returns the name of the file or an error if there was any
-func downloadVersion(updateServerAddress, product string, version insight.UpdateVersion) (string, error) {
-	versionString := version.String()
-	log.Infof("Downloading %s version: %s", product, versionString)
-	fileName := fmt.Sprintf("%s-%s", product, versionString)
-	endpoint := fmt.Sprintf("%s/updates/products/%s/%s/%s", updateServerAddress, product, versionString, fileName)
-
-	// Download
-	resp, err := http.Get(endpoint)
+func checkForUpdates() {
+	client, err := common.NewApiClient(baseFolder)
 	if err != nil {
-		log.Errorf("Failed to download %s version: %s", product, versionString)
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		err = fmt.Errorf("Getting %s version: %s failed! Server response: %s", product, versionString, resp)
-		log.Error(err)
-		return "", err
-	}
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		log.Errorf("Failed to read contents of downloaded file: %s. Error message: %s", fileName, err)
-	}
-
-	// Save the update into the updates folder
-	err = os.Mkdir(updatesFolder, 0777)
-	if err != nil {
-		if !strings.Contains(err.Error(), "already exists") {
-			log.Warning("Failed to create updates folder. Error message: ", err)
-		}
-	}
-
-	// Check the MD5 hash of the downloaded file. If it is not right, retry the download in the next update round.
-	savedFileHash := md5.Sum(body)
-	latestHash := fmt.Sprintf("%32x", savedFileHash)
-	log.Infof("MD5 hash of %s: %s", fileName, latestHash)
-
-	if latestHash != version.Md5 {
-		err = fmt.Errorf("MD5 hash mismatch for file: %s! Expected hash is %s, but calculated is %s.",
-			fileName, version.Md5, latestHash)
-		log.Error(err)
-		return "", err
-	}
-
-	filePath := filepath.Join(updatesFolder, fileName)
-
-	err = ioutil.WriteFile(fileName, body, 0777)
-	if err != nil {
-		log.Errorf("Failed to save file: %s! Error message: %s", filePath, err)
-		return "", err
-	}
-
-	// Successfully downloaded the file
-	log.Infof("Saved update file: %s", filePath)
-	return filePath, nil
-}
-
-func checkForUpdates(product, insightServerAddress string) {
-	// Check the latest version available on the server
-	latestVersion, err := getLatestVersion(product, insightServerAddress)
-	if err != nil {
-		log.Errorf("Failed to retrieve latest %s version. Error message: %s", product, err)
+		log.Error("Check agent update failed! Unable to create API client. Error: ", err)
 		return
 	}
+	// Check the latest version available on the server
+	latestUpdate, err := getLatestVersion(client)
+	if err != nil {
+		log.Error("Failed to retrieve latest agent version. Error message: ", err)
+		return
+	}
+	latestVersion := latestUpdate.Version
 
 	// Obtain the currently installed version
-	currentVersion, err := getCurrentVersion(product)
+	currentVersion, err := getCurrentVersion("agent")
 	if err != nil {
 		// Errors are logged inside the function
 		return
 	}
 
 	// Perform the update, if there is a newer version
-	if insight.IsNewerVersion(latestVersion.Version, currentVersion) {
-		log.Infof("Found newer %s version (%s) on server. Current version is %s",
-			product, latestVersion.String(), currentVersion.String())
+	if insight.IsNewerVersion(latestVersion, currentVersion) {
+		log.Infof("Found newer agent version (%s) on server. Current version is %s",
+			latestVersion, currentVersion)
 
 		// Download the latest version
-		updateFilePath, err := downloadVersion(insightServerAddress, product, latestVersion)
+		updateFileName := fmt.Sprintf("agent-%s", latestVersion)
+		updateFilePath := path.Join(updatesFolder, updateFileName)
+		log.Info("Downloading agent version: ", latestVersion)
+		err = client.DownloadFile(latestUpdate.Url, updateFilePath)
 		if err != nil {
+			log.Errorf("Failed to donwload latest version (%s)! Error: %v", latestVersion, err)
+			return
+		}
+		log.Infof("Saved update file: %s", updateFilePath)
+
+		// Check the MD5 hash of the downloaded file. If it is not right, retry the download in the next update round.
+		updateFileBytes, err := ioutil.ReadFile(updateFilePath)
+		if err != nil {
+			log.Errorf("Failed to read the contents of the newly donwloaded agent update file: %s! Error: %v",
+				updateFileName, err)
+		}
+		downloadedFileHash := md5.Sum(updateFileBytes)
+		downloadedHash := fmt.Sprintf("%32x", downloadedFileHash)
+		log.Infof("MD5 hash of %s: %s", updateFileName, downloadedHash)
+
+		if downloadedHash != latestUpdate.Md5 {
+			err = fmt.Errorf("MD5 hash mismatch for file: %s! Expected hash is %s, but calculated is %s.",
+				updateFileName, latestUpdate.Md5, downloadedHash)
+			log.Error(err)
+			// The downloaded file is corrupted, so delete it
+			os.Remove(updateFilePath)
 			return
 		}
 
 		err = performCommand("update", updateFilePath)
 		if err != nil {
-			log.Errorf("Failed to perform the %s update: %s", product, err)
+			log.Errorf("Failed to perform the agent update: %s", err)
+			return
 		}
-	} else {
-		log.Debugf("Current version is %s. Latest available version: %s is not newer. No need to update.",
-			currentVersion.String(), latestVersion.Version.String())
+		return
 	}
+
+	log.Infof("Current version is %s. Latest available version: %s is not newer. No need to update.",
+		currentVersion, latestVersion)
 }

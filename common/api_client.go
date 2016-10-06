@@ -2,12 +2,14 @@ package common
 
 import (
 	"bytes"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
 	"net/http/httputil"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -36,23 +38,42 @@ func NewApiClient(baseFolder string) (*ApiClient, error) {
 }
 
 func NewApiClientWithConfig(config Config) (*ApiClient, error) {
+	// Go on with the default transport, if there are no proxy settings in the config.
+	transport := http.DefaultTransport
+
+	wsConfig := config.Webservice
+	if wsConfig.UseProxy {
+		if len(wsConfig.ProxyAddress) == 0 {
+			err := fmt.Errorf("Missing proxy address from config file, but UseProxy is set!")
+			log.Error(err)
+			return nil, err
+		}
+		proxyUrl, err := url.Parse(wsConfig.ProxyAddress)
+		if err != nil {
+			log.Errorf("Could not parse proxy settings: %s from %s. Error message: %s",
+				wsConfig.ProxyAddress, insight_server.AgentConfigFileName, err)
+			return nil, err
+		}
+
+		// Replace the default transport with a new one with our proxy settings
+		transport = &http.Transport{
+			Proxy:           http.ProxyURL(proxyUrl),
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
+	}
+
 	innerClient := &http.Client{
 		// Timeout can be really important, because the default is
 		// to wait forever, which can make our application to hang
-		Timeout: time.Second * 30,
+		Timeout:   time.Second * 30,
+		Transport: transport,
 	}
 
-	insightServerAddress, err := config.Webservice.GetPreparedEndpoint()
-	if err != nil {
-		return nil, fmt.Errorf("Failed to get webservice endpoint! Error: %v", err)
-	}
-
-	apiClient := &ApiClient{
+	return &ApiClient{
 		httpClient: innerClient,
 		config:     config,
-		baseUrl:    fmt.Sprintf("%s/api/%s", insightServerAddress, InsightApiVersion),
-	}
-	return apiClient, nil
+		baseUrl:    fmt.Sprintf("%s/api/%s", config.Webservice.Endpoint, InsightApiVersion),
+	}, nil
 }
 
 func (c *ApiClient) Get(endpoint string) (*http.Response, error) {

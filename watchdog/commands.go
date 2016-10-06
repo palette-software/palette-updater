@@ -56,7 +56,7 @@ func performCommand(arguments ...string) (err error) {
 	return nil
 }
 
-func (pws *paletteWatchdogService) checkForCommand(insightServerAddress string) error {
+func (pws *paletteWatchdogService) checkForCommand() error {
 	client, err := common.NewApiClient(baseFolder)
 	if err != nil {
 		log.Error("Failed to create Insight API client while checking for command! Error: ", err)
@@ -111,21 +111,23 @@ func (pws *paletteWatchdogService) checkForCommand(insightServerAddress string) 
 		err = performGetConfig(client, hostname)
 		if err != nil {
 			log.Error("Failed to get and apply new config file! Error: ", err)
+			// Do not return here as the following PUT-CONFIG command has to be run, so that the online editor
+			// still shows the real content of this agent's Config.yml.
+		}
+
+		// Upload the applied config automatically
+		err = performPutConfig(client, hostname)
+		if err != nil {
+			log.Error("Automatic config upload after getting new configs failed! Error: ", err)
 			return err
 		}
 
 	case "PUT-CONFIG":
-		log.Info("Uploading agent's config file...")
-		agentConfigPath, err := common.FindAgentConfigFile(baseFolder)
+		err = performPutConfig(client, hostname)
 		if err != nil {
+			log.Error("Failed to upload config file! Error: ", err)
 			return err
 		}
-
-		err = client.UploadFile(fmt.Sprint("/config?hostname=", url.QueryEscape(hostname)), agentConfigPath)
-		if err != nil {
-			return err
-		}
-		log.Info("Successfully uploaded agent's config file: ", agentConfigPath)
 	default:
 		err = fmt.Errorf("Unknown command received: %v", command.Cmd)
 		log.Error(err)
@@ -143,7 +145,7 @@ func performGetConfig(client *common.ApiClient, hostname string) error {
 	defer os.RemoveAll(incomingConfigFolder)
 
 	destinationPath := path.Join(incomingConfigFolder, insight.AgentConfigFileName)
-	err := client.DownloadFile(fmt.Sprint("/config?hostname=", url.QueryEscape(hostname)), destinationPath)
+	err := client.DownloadFile(makeConfigEndpoint(hostname), destinationPath)
 	if err != nil {
 		return err
 	}
@@ -173,8 +175,29 @@ func performGetConfig(client *common.ApiClient, hostname string) error {
 	if err != nil {
 		return err
 	}
+
 	os.Rename(destinationPath, currentConfigPath)
 
 	log.Info("Successfully acquired and applied remote config file.")
 	return nil
+}
+
+func performPutConfig(client *common.ApiClient, hostname string) error {
+	log.Info("Uploading agent's config file...")
+	agentConfigPath, err := common.FindAgentConfigFile(baseFolder)
+	if err != nil {
+		return err
+	}
+
+	err = client.UploadFile(makeConfigEndpoint(hostname), agentConfigPath)
+	if err != nil {
+		return err
+	}
+
+	log.Info("Successfully uploaded agent's config file: ", agentConfigPath)
+	return nil
+}
+
+func makeConfigEndpoint(hostname string) string {
+	return fmt.Sprint("/config?hostname=", url.QueryEscape(hostname))
 }
