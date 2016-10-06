@@ -19,7 +19,12 @@ import (
 
 // FIXME: .String() function should be added to insight-server, until then we use this function.
 func commandToString(cmd insight.AgentCommand) string {
-	return fmt.Sprintf("{\"timestamp\":\"%s\", \"command\":\"%s\"}", cmd.Ts, cmd.Cmd)
+	b, err := json.Marshal(cmd)
+	if err != nil {
+		// There is not much we can do, simply return the string representation of the raw data
+		return fmt.Sprintf("%v", cmd)
+	}
+	return string(b)
 }
 
 func performCommand(arguments ...string) (err error) {
@@ -149,6 +154,8 @@ func performGetConfig(client *common.ApiClient, hostname string) error {
 		return err
 	}
 
+	// Make sure that the license in the new config is alright. This also checks implicitly, that
+	// the new insight server endpoint is fine.
 	license, err := common.GetLicenseDataForConfig(newConfig)
 	if err != nil {
 		return err

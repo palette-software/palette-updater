@@ -7,13 +7,14 @@ import (
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
+	"net/http/httputil"
 	"os"
 	"path"
 	"path/filepath"
 	"time"
 
-	log "github.com/palette-software/insight-tester/common/logging"
 	"github.com/palette-software/insight-server/lib"
+	log "github.com/palette-software/insight-tester/common/logging"
 )
 
 const InsightApiVersion = "v1"
@@ -74,8 +75,9 @@ func (c *ApiClient) Get(endpoint string) (*http.Response, error) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		err = fmt.Errorf("GET %s returned status code: %d -- Server response: %v -- Error: %v",
-			url, resp.StatusCode, resp, err)
+		dump := dumpResponse(resp)
+		err = fmt.Errorf("API client's GET %s failed! Server response: %v",
+			url, dump)
 		log.Error(err)
 		// Make sure that the response gets closed in this case too
 		resp.Body.Close()
@@ -122,13 +124,15 @@ func (c *ApiClient) UploadFile(endpoint, sourcePath string) error {
 	}
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		err = fmt.Errorf("Client do request failed! Request: %v. Error message: %v", req, err)
+		dump := dumpRequest(req)
+		err = fmt.Errorf("Client do request failed! Error message: %v\n\tRequest: %v", err, dump)
 		log.Error(err)
 		return err
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		err = fmt.Errorf("Upload failed for file: %s. Server response: %v", sourcePath, resp)
+		dump := dumpResponse(resp)
+		err = fmt.Errorf("Upload failed for file: %s. Server response: %v", sourcePath, dump)
 		log.Error(err)
 		return err
 	}
@@ -164,4 +168,20 @@ func newfileUploadRequest(uri string, paramName, path string) (*http.Request, er
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 
 	return req, nil
+}
+
+func dumpResponse(resp *http.Response) string {
+	dump, err := httputil.DumpResponse(resp, true)
+	if err != nil {
+		return fmt.Sprintf("Response dump failed! Error: %v\n\tRaw response: %v", err, resp)
+	}
+	return string(dump)
+}
+
+func dumpRequest(req *http.Request) string {
+	dump, err := httputil.DumpRequestOut(req, true)
+	if err != nil {
+		return fmt.Sprintf("Request dump failed! Error: %v\n\tRaw request: %v", err, req)
+	}
+	return string(dump)
 }
