@@ -13,6 +13,7 @@ import (
 	"time"
 
 	log "github.com/palette-software/insight-tester/common/logging"
+	"github.com/palette-software/insight-server/lib"
 )
 
 const InsightApiVersion = "v1"
@@ -85,8 +86,7 @@ func (c *ApiClient) Get(endpoint string) (*http.Response, error) {
 }
 
 func (c *ApiClient) DownloadFile(endpoint, destinationPath string) error {
-	url := fmt.Sprint(c.baseUrl, endpoint)
-	resp, err := c.Get(url)
+	resp, err := c.Get(endpoint)
 	if err != nil {
 		return err
 	}
@@ -94,7 +94,7 @@ func (c *ApiClient) DownloadFile(endpoint, destinationPath string) error {
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		log.Errorf("Failed to read response contents of URL: %s. Error message: %s", url, err)
+		log.Errorf("Failed to read response contents of URL: %s. Error message: %s", endpoint, err)
 		return err
 	}
 
@@ -115,7 +115,7 @@ func (c *ApiClient) DownloadFile(endpoint, destinationPath string) error {
 
 func (c *ApiClient) UploadFile(endpoint, sourcePath string) error {
 	url := fmt.Sprint(c.baseUrl, endpoint)
-	req, err := newfileUploadRequest(url, "file", sourcePath)
+	req, err := newfileUploadRequest(url, insight_server.UploadFileParam, sourcePath)
 	if err != nil {
 		log.Errorf("Failed to upload file: '%s' Error: %v", sourcePath, err)
 		return err

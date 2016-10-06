@@ -137,7 +137,7 @@ func performGetConfig(client *common.ApiClient, hostname string) error {
 	incomingConfigFolder := path.Join(baseFolder, "incoming-config")
 	defer os.RemoveAll(incomingConfigFolder)
 
-	destinationPath := path.Join(incomingConfigFolder, "Config.yml")
+	destinationPath := path.Join(incomingConfigFolder, insight.AgentConfigFileName)
 	err := client.DownloadFile(fmt.Sprint("/config?hostname=", url.QueryEscape(hostname)), destinationPath)
 	if err != nil {
 		return err

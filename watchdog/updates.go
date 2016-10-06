@@ -123,7 +123,7 @@ func downloadVersion(updateServerAddress, product string, version insight.Update
 	}
 
 	// Save the update into the updates folder
-	err = os.Mkdir(updatesFolder, 777)
+	err = os.Mkdir(updatesFolder, 0777)
 	if err != nil {
 		if !strings.Contains(err.Error(), "already exists") {
 			log.Warning("Failed to create updates folder. Error message: ", err)
@@ -144,7 +144,7 @@ func downloadVersion(updateServerAddress, product string, version insight.Update
 
 	filePath := filepath.Join(updatesFolder, fileName)
 
-	err = ioutil.WriteFile(fileName, body, 777)
+	err = ioutil.WriteFile(fileName, body, 0777)
 	if err != nil {
 		log.Errorf("Failed to save file: %s! Error message: %s", filePath, err)
 		return "", err

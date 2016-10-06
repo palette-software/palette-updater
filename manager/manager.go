@@ -131,7 +131,7 @@ func main() {
 	// Initialize the log to write into file instead of stderr
 	// open output file
 	logsFolder := filepath.Join(execFolder, "Logs")
-	os.Mkdir(logsFolder, 777)
+	os.Mkdir(logsFolder, 0777)
 	logFileName := filepath.Join(logsFolder, "manager.log")
 	logFile, err := os.OpenFile(logFileName, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
 	if err != nil {

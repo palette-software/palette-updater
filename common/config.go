@@ -12,6 +12,7 @@ import (
 	log "github.com/palette-software/insight-tester/common/logging"
 
 	"gopkg.in/yaml.v2"
+	"github.com/palette-software/insight-server/lib"
 )
 
 type Config struct {
@@ -45,7 +46,8 @@ func (w *Webservice) setupProxy() error {
 		}
 		proxyUrl, err := url.Parse(w.ProxyAddress)
 		if err != nil {
-			log.Errorf("Could not parse proxy settings: %s from Config.yml. Error message: %s", w.ProxyAddress, err)
+			log.Errorf("Could not parse proxy settings: %s from %s. Error message: %s",
+				w.ProxyAddress, insight_server.AgentConfigFileName, err)
 			return err
 		}
 		http.DefaultTransport = &http.Transport{
@@ -105,7 +107,7 @@ func ObtainInsightServerAddress(baseFolder string) (string, error) {
 // NOTE: This only works as long as the watchdog service runs from the very same folder as the agent.
 // But they are supposed to be in the same folder by design.
 func FindAgentConfigFile(baseFolder string) (string, error) {
-	configPath := filepath.Join(baseFolder, "Config", "Config.yml")
+	configPath := filepath.Join(baseFolder, "Config", insight_server.AgentConfigFileName)
 
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		log.Error("Agent config file does not exist! Error message: ", err)
