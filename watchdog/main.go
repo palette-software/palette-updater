@@ -80,7 +80,7 @@ func main() {
 
 	// Initialize the log to write into file instead of stderr
 	// open output file
-	os.Mkdir(logsFolder, 777)
+	os.Mkdir(logsFolder, 0777)
 	logFileName := logsFolder + "/watchdog.log"
 	logFile, err := os.OpenFile(logFileName, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
 	if err != nil {
@@ -97,11 +97,11 @@ func main() {
 	}()
 	log.AddTarget(logFile, log.LevelDebug)
 
-	licenseOwner, err := common.GetOwner()
-	log.Info("Owner of the license: ", licenseOwner)
+	license, err := common.GetLicenseData(execFolder)
 	if err == nil {
+		log.Info("Owner of the license: ", license.Owner)
 		// Add logging to Splunk as well
-		splunkLogger, err := log.NewSplunkTarget(common.SplunkServerAddress, common.WatchdogSplunkToken, licenseOwner)
+		splunkLogger, err := log.NewSplunkTarget(common.SplunkServerAddress, common.WatchdogSplunkToken, license.Owner)
 		if err == nil {
 			defer splunkLogger.Close()
 			// Only Splunk target may block the shutdown, so this is the only case we need
@@ -114,7 +114,7 @@ func main() {
 			log.Error("Failed to create Splunk target for watchdog! Error: ", err)
 		}
 	} else {
-		log.Error("Failed to get license owner for watchdog! Error:", err)
+		log.Error("Failed to get license data for watchdog! Continuing without Splunk logger! Error: ", err)
 	}
 
 	log.Infof("Firing up %s... Command line %s", common.WatchdogSvcDisplayName, os.Args)

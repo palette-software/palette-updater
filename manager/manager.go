@@ -14,8 +14,8 @@ import (
 	svcControl "github.com/palette-software/palette-updater/service_control"
 	servdis "github.com/palette-software/palette-updater/services-discovery"
 
-	"github.com/kardianos/osext"
 	"github.com/StackExchange/wmi"
+	"github.com/kardianos/osext"
 )
 
 const BatchFile = "reinstall.bat"
@@ -131,7 +131,7 @@ func main() {
 	// Initialize the log to write into file instead of stderr
 	// open output file
 	logsFolder := filepath.Join(execFolder, "Logs")
-	os.Mkdir(logsFolder, 777)
+	os.Mkdir(logsFolder, 0777)
 	logFileName := filepath.Join(logsFolder, "manager.log")
 	logFile, err := os.OpenFile(logFileName, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
 	if err != nil {
@@ -149,10 +149,11 @@ func main() {
 
 	log.AddTarget(logFile, log.LevelDebug)
 
-	licenseOwner, err := common.GetOwner()
+	license, err := common.GetLicenseData(execFolder)
 	if err == nil {
+		log.Info("Owner of the license:", license.Owner)
 		// Add logging to Splunk as well
-		splunkLogger, err := log.NewSplunkTarget(common.SplunkServerAddress, common.WatchdogSplunkToken, licenseOwner)
+		splunkLogger, err := log.NewSplunkTarget(common.SplunkServerAddress, common.WatchdogSplunkToken, license.Owner)
 		if err == nil {
 			defer splunkLogger.Close()
 			log.AddTarget(splunkLogger, log.LevelDebug)
@@ -160,7 +161,7 @@ func main() {
 			log.Error("Failed to create Splunk target for manager! Error: ", err)
 		}
 	} else {
-		log.Error("Failed to get license owner for manager! Error:", err)
+		log.Error("Failed to get license data in manager! Continuing without Splunk logging! Error: ", err)
 	}
 
 	log.Infof("Firing up manager... Command line %s", os.Args)
