@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -38,8 +39,19 @@ func NewApiClient(baseFolder string) (*ApiClient, error) {
 }
 
 func NewApiClientWithConfig(config Config) (*ApiClient, error) {
-	// Go on with the default transport, if there are no proxy settings in the config.
-	transport := http.DefaultTransport
+	// This is a copy of http.DefaultTransport, but certificate check is disabled.
+	transport := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		Dial: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).Dial,
+		TLSHandshakeTimeout: 10 * time.Second,
+
+		// Beware! Certificate check is diabled, because on-premise Insight Server
+		// names are not like *.palette-software.net
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
 
 	wsConfig := config.Webservice
 	if wsConfig.UseProxy {
@@ -54,12 +66,7 @@ func NewApiClientWithConfig(config Config) (*ApiClient, error) {
 				wsConfig.ProxyAddress, insight_server.AgentConfigFileName, err)
 			return nil, err
 		}
-
-		// Replace the default transport with a new one with our proxy settings
-		transport = &http.Transport{
-			Proxy:           http.ProxyURL(proxyUrl),
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		}
+		transport.Proxy = http.ProxyURL(proxyUrl)
 	}
 
 	innerClient := &http.Client{
