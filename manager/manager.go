@@ -161,7 +161,7 @@ func main() {
 			log.Error("Failed to create Splunk target for manager! Error: ", err)
 		}
 	} else {
-		log.Error("Failed to get license data in manager! Continuing without Splunk logging! Error: ", err)
+		log.Error("Failed to get license data in manager! Continue without Splunk logging! Error: ", err)
 	}
 
 	log.Infof("Firing up manager... Command line %s", os.Args)

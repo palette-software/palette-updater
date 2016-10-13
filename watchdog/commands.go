@@ -13,8 +13,10 @@ import (
 	insight "github.com/palette-software/insight-server/lib"
 	log "github.com/palette-software/insight-tester/common/logging"
 	"github.com/palette-software/palette-updater/common"
+	svcControl "github.com/palette-software/palette-updater/service_control"
 
 	gocp "github.com/cleversoap/go-cp"
+	"golang.org/x/sys/windows/svc"
 )
 
 // FIXME: .String() function should be added to insight-server, until then we use this function.
@@ -114,12 +116,34 @@ func (pws *paletteWatchdogService) checkForCommand() error {
 			// Do not return here as the following PUT-CONFIG command has to be run, so that the online editor
 			// still shows the real content of this agent's Config.yml.
 		}
-
-		// Upload the applied config automatically
+		// Upload the applied config automatically as a response
 		err = performPutConfig(client, hostname)
 		if err != nil {
 			log.Error("Automatic config upload after getting new configs failed! Error: ", err)
 			return err
+		}
+
+		// And restart the agent if it was running, so that the new config gets applied
+		var serviceControl svcControl.ServiceControl
+		svcStatus, err := serviceControl.Query(common.AgentSvcName)
+		if err != nil {
+			log.Errorf("Failed to query the status of %s service! Error: %v", common.AgentSvcName, err)
+			return err
+		}
+		if svcStatus.State == svc.Running {
+			agentSvcMutex.Lock()
+			defer agentSvcMutex.Unlock()
+			err = serviceControl.Stop(common.AgentSvcName)
+			if err != nil {
+				log.Errorf("Failed to stop %s service! Error %v", common.AgentSvcName, err)
+				// Do not return here, and try to start anyway
+			}
+			err = serviceControl.Start(common.AgentSvcName)
+			if err != nil {
+				log.Errorf("Failed to restart %s service after applying remote config changes! Error: %v",
+					common.AgentSvcName, err)
+				return err
+			}
 		}
 
 	case "PUT-CONFIG":
