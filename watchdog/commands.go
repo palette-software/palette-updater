@@ -159,7 +159,7 @@ func (pws *paletteWatchdogService) checkForCommand() error {
 	}
 
 	pws.lastPerformedCommand = command
-	return err
+	return nil
 }
 
 func performGetConfig(client *common.ApiClient, hostname string) error {
