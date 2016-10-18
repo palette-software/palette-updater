@@ -12,7 +12,6 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -128,7 +127,7 @@ func (c *ApiClient) DownloadFile(endpoint, destinationPath string) error {
 	}
 
 	// Save the update into the updates folder
-	err = os.MkdirAll(path.Dir(destinationPath), 777)
+	err = os.MkdirAll(filepath.Dir(destinationPath), 777)
 	if err != nil {
 		log.Errorf("Failed to create folders for path: '%s' Error: %v", destinationPath, err)
 		return err
