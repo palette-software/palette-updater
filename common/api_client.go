@@ -14,6 +14,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/palette-software/insight-server/lib"
@@ -25,7 +26,6 @@ const InsightApiVersion = "v1"
 type ApiClient struct {
 	httpClient *http.Client
 	config     Config
-	baseUrl    string
 }
 
 func NewApiClient(baseFolder string) (*ApiClient, error) {
@@ -79,12 +79,11 @@ func NewApiClientWithConfig(config Config) (*ApiClient, error) {
 	return &ApiClient{
 		httpClient: innerClient,
 		config:     config,
-		baseUrl:    fmt.Sprintf("%s/api/%s", config.Webservice.Endpoint, InsightApiVersion),
 	}, nil
 }
 
 func (c *ApiClient) Get(endpoint string) (*http.Response, error) {
-	url := fmt.Sprint(c.baseUrl, endpoint)
+	url := c.makeApiUrl(endpoint)
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		err = fmt.Errorf("Failed to create GET request for %s Error: %v", url, err)
@@ -144,7 +143,7 @@ func (c *ApiClient) DownloadFile(endpoint, destinationPath string) error {
 }
 
 func (c *ApiClient) UploadFile(endpoint, sourcePath string) error {
-	url := fmt.Sprint(c.baseUrl, endpoint)
+	url := c.makeApiUrl(endpoint)
 	req, err := newfileUploadRequest(url, insight_server.UploadFileParam, sourcePath)
 	if err != nil {
 		log.Errorf("Failed to upload file: '%s' Error: %v", sourcePath, err)
@@ -196,6 +195,14 @@ func newfileUploadRequest(uri string, paramName, path string) (*http.Request, er
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 
 	return req, nil
+}
+
+func (c *ApiClient) makeApiUrl(endpoint string) string {
+	url := c.config.Webservice.Endpoint
+	if !strings.HasPrefix(endpoint, "/api/") {
+		url = fmt.Sprint(url, "/api/", InsightApiVersion)
+	}
+	return fmt.Sprint(url, endpoint)
 }
 
 func dumpResponse(resp *http.Response) string {
