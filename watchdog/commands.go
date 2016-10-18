@@ -6,7 +6,6 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"time"
 
@@ -165,10 +164,10 @@ func (pws *paletteWatchdogService) checkForCommand() error {
 func performGetConfig(client *common.ApiClient, hostname string) error {
 	log.Info("Acquiring remote config...")
 	// Create a temporary folder for incoming config file and delete it after reconfiguration is done
-	incomingConfigFolder := path.Join(baseFolder, "incoming-config")
+	incomingConfigFolder := filepath.Join(baseFolder, "incoming-config")
 	defer os.RemoveAll(incomingConfigFolder)
 
-	destinationPath := path.Join(incomingConfigFolder, insight.AgentConfigFileName)
+	destinationPath := filepath.Join(incomingConfigFolder, insight.AgentConfigFileName)
 	err := client.DownloadFile(makeConfigEndpoint(hostname), destinationPath)
 	if err != nil {
 		return err

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -113,7 +113,7 @@ func checkForUpdates() {
 
 		// Download the latest version
 		updateFileName := fmt.Sprintf("agent-%s", latestVersion)
-		updateFilePath := path.Join(updatesFolder, updateFileName)
+		updateFilePath := filepath.Join(updatesFolder, updateFileName)
 		log.Info("Downloading agent version: ", latestVersion)
 		err = client.DownloadFile(latestUpdate.Url, updateFilePath)
 		if err != nil {
