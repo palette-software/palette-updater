@@ -45,7 +45,7 @@ func controlService(name string, c svc.Cmd, to svc.State) error {
 	if err != nil {
 		return fmt.Errorf("could not send control=%d: %v", c, err)
 	}
-	timeout := time.Now().Add(10 * time.Second)
+	timeout := time.Now().Add(30 * time.Second)
 	for status.State != to {
 		if timeout.Before(time.Now()) {
 			return fmt.Errorf("timeout waiting for service to go to state=%d", to)
