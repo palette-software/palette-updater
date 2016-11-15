@@ -12,6 +12,12 @@ import (
 	"golang.org/x/sys/windows/svc/mgr"
 )
 
+// IMPORTANT: it is critical that this timeout value is significantly larger, than
+// the value used as shutdownTimer defined in watchdog/main.go. Not doing so, it
+// may result in a failure during service uninstall, which may result in system reboot
+// and the Palette Insight Agent will remain uninstalled at the end of the process!
+const serviceControlTimeout = 30 * time.Second
+
 func startService(name string) error {
 	m, err := mgr.Connect()
 	if err != nil {
@@ -45,7 +51,7 @@ func controlService(name string, c svc.Cmd, to svc.State) error {
 	if err != nil {
 		return fmt.Errorf("could not send control=%d: %v", c, err)
 	}
-	timeout := time.Now().Add(30 * time.Second)
+	timeout := time.Now().Add(serviceControlTimeout)
 	for status.State != to {
 		if timeout.Before(time.Now()) {
 			return fmt.Errorf("timeout waiting for service to go to state=%d", to)

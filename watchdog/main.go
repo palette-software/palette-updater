@@ -45,6 +45,10 @@ import (
 	"golang.org/x/sys/windows/svc"
 )
 
+// IMPORTANT: this value must be significantly lower than the value of serviceControlTimeout
+// defined in service_control/manage_windows.go, because if it is not so, service uninstall
+// may fail and it would result in system reboot and and the Palette Insight Agent would remain
+// uninstalled at the end of the process!
 const shutdownTimer = 10 * time.Second
 
 // This mutex prevents starting the agent service during agent update, because the service
