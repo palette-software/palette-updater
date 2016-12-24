@@ -42,10 +42,10 @@ func NewApiClientWithConfig(config Config) (*ApiClient, error) {
 	transport := &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
 		Dial: (&net.Dialer{
-			Timeout:   30 * time.Second,
+			Timeout:   2 * time.Minute,
 			KeepAlive: 30 * time.Second,
 		}).Dial,
-		TLSHandshakeTimeout: 10 * time.Second,
+		TLSHandshakeTimeout: 2 * time.Minute,
 
 		// Beware! Certificate check is diabled, because on-premise Insight Server
 		// names are not like *.palette-software.net
