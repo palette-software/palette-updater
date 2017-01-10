@@ -4,6 +4,8 @@
 
 Palette Updater is intended to be a service which can remotely and automatically update the [Palette Insight Agent] and Palette Insight Watchdog services, if there is an update available.
 
+Palette Updater runs only on **Windows** at the moment.
+
 Palette Auto Updater consists of 2 components:
 * Watchdog
 * Manager
@@ -37,8 +39,24 @@ Moreover, when it performs a [Palette Insight Agent] update, it also creates a `
 
 The log file of the Manager component is located at `Logs\manager.log`. 
 
-# How do I setup Palette Updater
+# How do I set up Palette Updater
 At the moment Palette Auto Updater is *bundled with* the [Palette Insight Agent] install package. This means that [Palette Insight Agent] and Watchdog uses the same `Config\Config.yml` file. There is no point in deploying Palette Updater without [Palette Insight Agent].
+
+## Contribution
+
+### Building locally
+
+```
+go get ./...
+go build -v
+```
+
+### Testing
+
+```
+go get -t ./...
+go test ./... -v
+```
 
 [Insight Server]: https://github.com/palette-software/insight-server
 [Palette Insight Agent]: https://github.com/palette-software/PaletteInsightAgent
