@@ -39,7 +39,7 @@ Moreover, when it performs a [Palette Insight Agent] update, it also creates a `
 
 The log file of the Manager component is located at `Logs\manager.log`. 
 
-# How do I set up Palette Updater
+# How do I set up Palette Updater?
 At the moment Palette Auto Updater is *bundled with* the [Palette Insight Agent] install package. This means that [Palette Insight Agent] and Watchdog uses the same `Config\Config.yml` file. There is no point in deploying Palette Updater without [Palette Insight Agent].
 
 ## Contribution
