@@ -5,7 +5,7 @@ import (
 	"time"
 
 	insight "github.com/palette-software/insight-server/lib"
-	log "github.com/palette-software/insight-tester/common/logging"
+	log "github.com/palette-software/go-log-targets"
 	"github.com/palette-software/palette-updater/common"
 	svcControl "github.com/palette-software/palette-updater/service_control"
 

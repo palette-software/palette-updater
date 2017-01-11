@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	insight "github.com/palette-software/insight-server/lib"
-	log "github.com/palette-software/insight-tester/common/logging"
+	log "github.com/palette-software/go-log-targets"
 	"github.com/palette-software/palette-updater/common"
 	servdis "github.com/palette-software/palette-updater/services-discovery"
 )
