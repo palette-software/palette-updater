@@ -3,7 +3,7 @@ package services_discovery
 import (
 	"fmt"
 	wmi "github.com/StackExchange/wmi"
-	log "github.com/palette-software/insight-tester/common/logging"
+	log "github.com/palette-software/go-log-targets"
 	"path/filepath"
 	"strings"
 )

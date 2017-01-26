@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/palette-software/insight-server/lib"
-	log "github.com/palette-software/insight-tester/common/logging"
+	log "github.com/palette-software/go-log-targets"
 )
 
 const InsightApiVersion = "v1"

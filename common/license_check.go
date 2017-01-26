@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	insight_server "github.com/palette-software/insight-server/lib"
-	log "github.com/palette-software/insight-tester/common/logging"
+	log "github.com/palette-software/go-log-targets"
 )
 
 func GetLicenseData(baseFolder string) (*insight_server.LicenseData, error) {
