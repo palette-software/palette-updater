@@ -1,5 +1,9 @@
 [![Build Status](https://travis-ci.com/palette-software/palette-updater.svg?token=qWG5FJDvsjLrsJpXgxSJ&branch=master)](https://travis-ci.com/palette-software/palette-updater)
 
+# Palette Insight Architecture
+
+![GitHub Logo](https://github.com/palette-software/palette-insight/blob/master/insight-system-diagram.png?raw=true)
+
 # What is Palette Updater?
 
 Palette Updater is intended to be a service which can remotely and automatically update the [Palette Insight Agent] and Palette Insight Watchdog services, if there is an update available.
