@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.com/palette-software/palette-updater.svg?token=qWG5FJDvsjLrsJpXgxSJ&branch=master)](https://travis-ci.com/palette-software/palette-updater)
+[![Build Status](https://travis-ci.org/palette-software/palette-updater.svg?branch=master)](https://travis-ci.org/palette-software/palette-updater)
 
 # Palette Insight Architecture
 

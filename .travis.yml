@@ -17,9 +17,6 @@ env:
 before_install:
   - export GOOS=${TMP_GOOS}
   - export GOARCH=${TMP_GOARCH}
-  - cp .netrc ~
-  - chmod 600 ~/.netrc
-  - chmod 600 .netrc
 
 script:
   - go get -t -v ./...
