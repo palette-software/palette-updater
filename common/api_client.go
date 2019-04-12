@@ -127,13 +127,13 @@ func (c *ApiClient) DownloadFile(endpoint, destinationPath string) error {
 	}
 
 	// Save the update into the updates folder
-	err = os.MkdirAll(filepath.Dir(destinationPath), 777)
+	err = os.MkdirAll(filepath.Dir(destinationPath), 0777)
 	if err != nil {
 		log.Errorf("Failed to create folders for path: '%s' Error: %v", destinationPath, err)
 		return err
 	}
 
-	err = ioutil.WriteFile(destinationPath, body, 777)
+	err = ioutil.WriteFile(destinationPath, body, 0777)
 	if err != nil {
 		log.Errorf("Failed to save file: %s! Error message: %s", destinationPath, err)
 		return err
