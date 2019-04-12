@@ -15,7 +15,6 @@ import (
 	servdis "github.com/palette-software/palette-updater/services-discovery"
 
 	"github.com/StackExchange/wmi"
-	"github.com/kardianos/osext"
 )
 
 const BatchFile = "reinstall.bat"
@@ -122,47 +121,13 @@ func reinstallServices(msiPath string) error {
 }
 
 func main() {
-	// Do not use relative paths, otherwise our files will end up in Windows/System32
-	execFolder, errorToLogLater := osext.ExecutableFolder()
-	if errorToLogLater != nil {
-		execFolder = ""
-	}
-
-	// Initialize the log to write into file instead of stderr
-	// open output file
-	logsFolder := filepath.Join(execFolder, "Logs")
-	os.Mkdir(logsFolder, 0777)
-	logFileName := filepath.Join(logsFolder, "manager.log")
-	logFile, err := os.OpenFile(logFileName, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	closeLogging, err := common.InitLogging("manager.log")
 	if err != nil {
-		fmt.Println("Failed to open log file! ", err)
+		fmt.Println("Failed to init logging! ", err)
 		panic(err)
 	}
 
-	// close file on exit and check for its returned error
-	defer func() {
-		if err := logFile.Close(); err != nil {
-			fmt.Println("Failed to close log file! ", err)
-			panic(err)
-		}
-	}()
-
-	log.AddTarget(logFile, log.LevelDebug)
-
-	license, err := common.GetLicenseData(execFolder)
-	if err == nil {
-		log.Info("Owner of the license:", license.Owner)
-		// Add logging to Splunk as well
-		splunkLogger, err := log.NewSplunkTarget(common.SplunkServerAddress, common.WatchdogSplunkToken, license.Owner)
-		if err == nil {
-			defer splunkLogger.Close()
-			log.AddTarget(splunkLogger, log.LevelDebug)
-		} else {
-			log.Error("Failed to create Splunk target for manager! Error: ", err)
-		}
-	} else {
-		log.Error("Failed to get license data in manager! Continue without Splunk logging! Error: ", err)
-	}
+	defer closeLogging()
 
 	log.Infof("Firing up manager... Command line %s", os.Args)
 

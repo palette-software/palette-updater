@@ -68,7 +68,7 @@ func usage(errormsg string) {
 }
 
 // Global variables for proper working directories and paths
-var logsFolder, updatesFolder, baseFolder string
+var updatesFolder, baseFolder string
 
 func main() {
 	// Do not use relative paths, otherwise our files will end up in Windows/System32
@@ -79,47 +79,20 @@ func main() {
 
 	// Set up our paths
 	baseFolder = execFolder
-	logsFolder = baseFolder + "/Logs"
 	updatesFolder = baseFolder + "/Updates"
 
-	// Initialize the log to write into file instead of stderr
-	// open output file
-	os.Mkdir(logsFolder, 0777)
-	logFileName := logsFolder + "/watchdog.log"
-	logFile, err := os.OpenFile(logFileName, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	closeLogging, err := common.InitLogging("watchdog.log")
 	if err != nil {
-		fmt.Println("Failed to open log file! ", err)
+		fmt.Println("Failed to init logging! ", err)
 		panic(err)
 	}
 
-	// close file on exit and check for its returned error
-	defer func() {
-		if err := logFile.Close(); err != nil {
-			fmt.Println("Failed to close log file! ", err)
-			panic(err)
-		}
-	}()
-	log.AddTarget(logFile, log.LevelDebug)
-
-	license, err := common.GetLicenseData(execFolder)
-	if err == nil {
-		log.Info("Owner of the license: ", license.Owner)
-		// Add logging to Splunk as well
-		splunkLogger, err := log.NewSplunkTarget(common.SplunkServerAddress, common.WatchdogSplunkToken, license.Owner)
-		if err == nil {
-			defer splunkLogger.Close()
-			// Only Splunk target may block the shutdown, so this is the only case we need
-			// to make sure that Watchdog shuts down in time.
-			// IMPORTANT NOTE: the order of the deferred calls are important, because Splunk
-			// target's Close() is blocking call!!
-			defer shutdownInTime()
-			log.AddTarget(splunkLogger, log.LevelDebug)
-		} else {
-			log.Error("Failed to create Splunk target for watchdog! Error: ", err)
-		}
-	} else {
-		log.Error("Failed to get license data for watchdog! Continuing without Splunk logger! Error: ", err)
-	}
+	// Only Splunk target may block the shutdown, so this is the only case we need
+	// to make sure that Watchdog shuts down in time.
+	// IMPORTANT NOTE: the order of the calls are important, because Splunk
+	// target's Close() is blocking call!!
+	defer closeLogging()
+	defer shutdownInTime()
 
 	log.Infof("Firing up %s... Command line %s", common.WatchdogSvcDisplayName, os.Args)
 
@@ -181,7 +154,6 @@ func main() {
 	}
 
 	log.Infof("Command %s execution finished.", os.Args)
-	return
 }
 
 // Make sure that Watchdog stops in a timely fashion. This is really important because it is
