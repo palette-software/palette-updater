@@ -6,12 +6,12 @@ if [ "X" == "X$GITHUB_TOKEN" ]; then echo "GITHUB_TOKEN environment variable is 
 if [ "X" == "X$HOME" ]; then echo "HOME environment variable is not set!"; exit 10; fi
 
 # These package are required for our "github-release-upload.py" script
-sudo -H pip install --upgrade pip
-sudo -H pip install requests
-sudo -H pip install urllib3
+sudo -H pip3 install --upgrade pip
+sudo -H pip3 install requests
+sudo -H pip3 install urllib3
 
 echo "Creating Github realase..."
-export RELEASE_ID=`python github-release-upload.py`
+export RELEASE_ID=`python3 github-release-upload.py`
 # Although the Github release ID is expected in this variable, it might contain error codes and messages of the python script above.
 # So print it anyway, before we exit the BASH script to see the reason why we exit.
 echo $RELEASE_ID
