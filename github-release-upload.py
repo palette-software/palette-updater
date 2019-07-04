@@ -13,8 +13,8 @@ def getRequiredEnvVar(name):
 # Creates a new Github release and returns the ID of the newly created release. Although it returns the existing
 # release ID, if the release already exits.
 def main():
-    # Disable SSL warnings
-    urllib3.disable_warnings()
+    # # Disable SSL warnings
+    # urllib3.disable_warnings()
 
     owner = getRequiredEnvVar('OWNER')
     package = getRequiredEnvVar('PACKAGE')
